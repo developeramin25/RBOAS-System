@@ -201,7 +201,7 @@ function results(){
  '</div><div class="card"><div class="section-heading"><h3>Management insights</h3></div>'+
  '<p class="muted">A consistent assessment helps identify learning gaps and prioritize targeted refresher training.</p>'+
  '<div class="divider"></div>'+activity("Passing threshold","Recommended 80% · 20 of 25 correct answers","shield")+
- activity("Category-level insights","Five categories with five questions each","results")+
+ activity("Category-level insights","Nine approved topics in official exams; five generic sample topics in the public demo","results")+
  activity("Assessment governance","Managers review reports; HR makes onboarding decisions","check")+
  '<div class="notice" style="margin-top:18px">Results support onboarding decisions; a quiz score is not a substitute for supervised practical competency.</div></div></div>';
 }
@@ -310,7 +310,7 @@ function practice(){
  const numbering='<div class="question-jump">'+PRACTICE.map((_,i)=>'<button aria-label="Go to question '+(i+1)+'" title="Question '+(i+1)+'" data-jump="'+i+'" class="jump '+(i===state.question?'current':(state.choices[i]!==undefined?'answered':''))+'">'+(i+1)+'</button>').join('')+'</div>';
  return '<div class="quiz-container">'+
  '<div class="quiz-header"><div><div class="eyebrow">'+svg("cap")+' 25-QUESTION MANAGEMENT DEMO</div><h1 class="header-title">Remote Billing Assessment</h1></div><span class="status blue">Draft practice only</span></div>'+
- '<div class="notice warning"><strong>Presentation preview:</strong> 25 questions selected randomly from 50 draft questions (5 per category). An official assessment requires reviewed, approved questions and staff authorization.</div>'+
+ '<div class="notice warning"><strong>Presentation preview:</strong> This public demonstration uses 25 questions from a separate generic practice bank. Official employee exams randomly select 25 from the 50 reviewed questions across nine topics.</div>'+
  '<div class="quiz-meta"><span>Question '+(state.question+1)+' / '+count+'</span><span>'+answered+' answered</span><span>'+esc(q.category)+'</span><span style="font-weight:800;color:#2675d3">'+svg("clock")+' <span id="demo-timer">'+remainingTime()+'</span></span></div>'+
  '<div class="quiz-progress"><div style="width:'+((answered/count)*100)+'%"></div></div>'+
  '<div class="card question-card"><div class="small-caps">SELECT ONE ANSWER</div><h2>'+esc(q.prompt)+'</h2>'+
