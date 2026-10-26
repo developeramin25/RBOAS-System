@@ -28,6 +28,14 @@
     </form>
   </dialog>
 
+<dialog id="passwordDialog" class="auth-dialog" aria-labelledby="passwordTitle">
+<form id="passwordForm" class="auth-form">
+<div class="auth-symbol">✦</div><h2 id="passwordTitle">Set your password</h2>
+<p>Use a unique password with at least 12 characters. This setting is available only after securely signing in or accepting an email invitation.</p>
+<label for="newPassword">New password</label><input type="password" id="newPassword" name="password" required autocomplete="new-password" minlength="12" maxlength="128"/>
+<label for="confirmPassword">Confirm password</label><input type="password" id="confirmPassword" name="confirm" required autocomplete="new-password" minlength="12" maxlength="128"/>
+<div class="form-message" id="passwordMessage" role="status"></div>
+<button class="primary full" type="submit">Save password</button><button type="button" class="text-button full" data-close-dialog="passwordDialog">Cancel</button></form></dialog>
 <dialog id="staffDialog" class="auth-dialog" aria-labelledby="staffTitle">
 <form id="staffForm" class="auth-form"><div class="auth-symbol">✎</div><h2 id="staffTitle">Manage employee</h2>
 <p>Administrators can update store assignments, manager ownership, roles, and account access. All changes are audited.</p>
