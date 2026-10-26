@@ -126,7 +126,7 @@ Deno.serve(async req=>{
     const employee_code=typeof body.employee_code==="string"?body.employee_code.trim().slice(0,30):null;
     const newRole=["trainee","manager"].includes(body.role)?body.role:"trainee";
     const manager_id=body.manager_id?uid(body.manager_id):null;
-    const invited=ok(await supabase.auth.admin.inviteUserByEmail(email,{data:{display_name}}));
+    const invited=ok(await supabase.auth.admin.inviteUserByEmail(email,{data:{display_name},redirectTo:"https://astonishing-beijinho-a0f70b.netlify.app/"}));
     if(!invited?.user)bad("Invitation was not created");
     const invitedUser=invited.user;
     ok(await supabase.auth.admin.updateUserById(invitedUser.id,{app_metadata:{...(invitedUser.app_metadata||{}),rboas_role:newRole}}));
