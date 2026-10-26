@@ -134,6 +134,34 @@ Deno.serve(async req=>{
     await record(user.id,"invite_user","user_profiles",invitedUser.id,{role:newRole});
     break;
    }
+   case "staff_update":{
+    adminOnly();
+    const id=uid(body.id);
+    if(id===user.id)bad("Administrators cannot deactivate or demote their own account");
+    const target=ok(await supabase.from("user_profiles").select("id,email,display_name,active").eq("id",id).maybeSingle());
+    if(!target)bad("Employee account not found",404);
+    const display_name=text(body.display_name,"name",120,2);
+    const store_code=typeof body.store_code==="string"?body.store_code.trim().slice(0,30):null;
+    const employee_code=typeof body.employee_code==="string"?body.employee_code.trim().slice(0,30):null;
+    const active=Boolean(body.active);
+    const staffRole=["manager","trainee"].includes(body.role)?body.role:"trainee";
+    let manager_id=body.manager_id?uid(body.manager_id):null;
+    if(manager_id===id)bad("An employee cannot manage themself");
+    if(manager_id){
+      const manager=ok(await supabase.from("user_profiles").select("id,active").eq("id",manager_id).maybeSingle());
+      if(!manager||!manager.active)bad("Manager account must be active");
+      const managerAccount=ok(await supabase.auth.admin.getUserById(manager_id));
+      if(!["admin","manager"].includes(managerAccount.user?.app_metadata?.rboas_role))bad("Selected account is not a manager");
+    }
+    const account=ok(await supabase.auth.admin.getUserById(id));
+    if(account.user?.app_metadata?.rboas_role==="admin")bad("This workflow cannot modify administrator accounts");
+    ok(await supabase.auth.admin.updateUserById(id,{app_metadata:{...(account.user?.app_metadata||{}),rboas_role:staffRole}}));
+    const result=ok(await supabase.from("user_profiles").update({
+      display_name,store_code,employee_code,active,manager_id
+    }).eq("id",id).select("id,display_name,store_code,employee_code,active,manager_id").single());
+    await record(user.id,"update_staff","user_profiles",id,{role:staffRole,active});
+    data=result;break;
+   }
    case "question_save":{
     adminOnly();
     const category=text(body.category,"category",80);
