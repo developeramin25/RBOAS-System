@@ -27,6 +27,39 @@
       <button type="button" class="text-button full" id="closeLogin">Back to design preview</button>
     </form>
   </dialog>
+
+<dialog id="inviteDialog" class="auth-dialog" aria-labelledby="inviteTitle">
+ <form id="inviteForm" class="auth-form"><div class="auth-symbol">+</div><h2 id="inviteTitle">Invite a trainee</h2>
+ <p>The system sends an invitation to the provided address. New trainees choose their own passwords.</p>
+ <label for="inviteName">Full name</label><input required name="display_name" id="inviteName" placeholder="Full name" maxlength="120"/>
+ <label for="inviteEmail">Work email</label><input required type="email" name="email" id="inviteEmail" placeholder="person@example.com"/>
+ <label for="inviteStore">Store number</label><input name="store_code" id="inviteStore" placeholder="475"/>
+ <label for="inviteCode">Employee ID (optional)</label><input name="employee_code" id="inviteCode" placeholder="Employee code"/>
+ <label for="inviteRole">Role</label><select name="role" id="inviteRole"><option value="trainee">Trainee</option><option value="manager">Manager / HR</option></select>
+ <div class="form-message" id="inviteMessage" role="status"></div>
+ <button class="primary full" type="submit">Send secure invitation</button><button type="button" class="text-button full" data-close-dialog="inviteDialog">Cancel</button>
+ </form>
+</dialog>
+<dialog id="questionDialog" class="auth-dialog" aria-labelledby="questionTitle">
+ <form id="questionForm" class="auth-form"><div class="auth-symbol">?</div><h2 id="questionTitle">Create a draft question</h2>
+ <p>Draft questions stay inactive until an administrator verifies them against the approved SOP.</p>
+ <label for="questionCategory">Category</label><select id="questionCategory" name="category" required>
+ <option>ERX Processing</option><option>Refill Processing</option><option>Insurance &amp; Rejections</option><option>LTC Billing</option><option>Coupons &amp; Follow-Up</option></select>
+ <label for="questionPrompt">Question</label><textarea name="prompt" id="questionPrompt" rows="3" maxlength="2000" required placeholder="Write the assessment question"></textarea>
+ <label>Answer choices</label><input name="option0" required placeholder="Option A"/><input name="option1" required placeholder="Option B"/><input name="option2" required placeholder="Option C"/><input name="option3" required placeholder="Option D"/>
+ <label for="questionCorrect">Correct answer</label><select id="questionCorrect" name="correct"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
+ <label for="questionDifficulty">Difficulty</label><select id="questionDifficulty" name="difficulty"><option value="basic">Basic</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select>
+ <div class="form-message" id="questionMessage" role="status"></div>
+ <button class="primary full" type="submit">Save as draft</button><button type="button" class="text-button full" data-close-dialog="questionDialog">Cancel</button></form>
+</dialog>
+<dialog id="assignmentDialog" class="auth-dialog" aria-labelledby="assignmentTitle">
+ <form id="assignmentForm" class="auth-form"><div class="auth-symbol">✓</div><h2 id="assignmentTitle">Assign an assessment</h2>
+ <p>Only published assessments can be assigned to an active trainee.</p>
+ <label for="assignmentTrainee">Trainee</label><select id="assignmentTrainee" name="trainee_id" required></select>
+ <label for="assignmentAssessment">Assessment</label><select id="assignmentAssessment" name="assessment_id" required></select>
+ <div class="form-message" id="assignmentMessage" role="status"></div>
+ <button class="primary full" type="submit">Assign assessment</button><button type="button" class="text-button full" data-close-dialog="assignmentDialog">Cancel</button></form>
+</dialog>
   <script src="/demo-bank.js" defer></script><script src="/app.js" defer></script>
 </body>
 </html>
