@@ -222,7 +222,17 @@ Deno.serve(async req=>{
     const trainee=ok(await supabase.from("user_profiles").select("id,active").eq("id",trainee_id).maybeSingle());
     const assessment=ok(await supabase.from("assessments").select("id,published").eq("id",assessment_id).maybeSingle());
     if(!trainee||!trainee.active||!assessment||!assessment.published)bad("Trainee must be active and assessment must be published");
-    data=ok(await supabase.from("assessment_assignments").insert({trainee_id,assessment_id,assigned_by:user.id,due_at:body.due_at||null}).select("id,status").single());
+    const start=body.available_from?new Date(body.available_from):null;
+    const due=body.due_at?new Date(body.due_at):null;
+    if(start&&Number.isNaN(start.getTime()))bad("Invalid availability date");
+    if(due&&Number.isNaN(due.getTime()))bad("Invalid due date");
+    if(start&&due&&due.getTime()<=start.getTime())bad("Due date must follow availability date");
+    if(due&&due.getTime()<=Date.now())bad("Due date must be in the future");
+    data=ok(await supabase.from("assessment_assignments").insert({
+      trainee_id,assessment_id,assigned_by:user.id,
+      available_from:start?.toISOString()||null,
+      due_at:due?.toISOString()||null
+    }).select("id,status,available_from,due_at").single());
     await record(user.id,"assign_assessment","assessment_assignments",data.id);break;
    }
    case "exam_start":{
@@ -234,7 +244,12 @@ Deno.serve(async req=>{
     if(!config.published)bad("Assessment unavailable");
     const attempts=ok(await supabase.from("assessment_attempts").select("*").eq("assignment_id",assignment.id).order("attempt_number",{ascending:false}));
     const running=attempts.find((a:any)=>a.status==="in_progress");
+    // Trainees may resume an already-started attempt after the assignment due date.
+    // The attempt's own timer and answer lock still apply.
     if(running){data={attempt_id:running.id};break;}
+    const now=Date.now();
+    if(assignment.available_from&&now<Date.parse(assignment.available_from))bad("This assessment is not available yet");
+    if(assignment.due_at&&now>Date.parse(assignment.due_at))bad("This assessment assignment is past its due date");
     if(attempts.length>=config.allowed_attempts)bad("No attempts remaining");
     const bank=ok(await supabase.from("question_bank").select("id,category,options").eq("active",true));
     if(bank.length<25)bad("Assessment question bank requires at least 25 approved questions");
@@ -282,6 +297,7 @@ Deno.serve(async req=>{
     const attempt=await ownAttempt(body.attempt_id);
     if(attempt.status==="submitted"){data={score_percent:attempt.score_percent,passed:attempt.passed,correct_count:attempt.correct_count};break;}
     const rows=ok(await supabase.from("attempt_questions").select("id,question_id,displayed_options").eq("attempt_id",attempt.id));
+    if(rows.length!==25)bad("Exam setup is incomplete; contact your administrator",503);
     const submitted=ok(await supabase.from("attempt_answers").select("attempt_question_id,selected_index").in("attempt_question_id",rows.map((x:any)=>x.id)));
     const keys=ok(await supabase.rpc("rboas_get_scoring_keys",{p_question_ids:rows.map((x:any)=>x.question_id)}));
     const questions=ok(await supabase.from("question_bank").select("id,options").in("id",rows.map((x:any)=>x.question_id)));
