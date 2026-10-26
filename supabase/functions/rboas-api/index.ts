@@ -42,6 +42,82 @@ Deno.serve(async req=>{
   };
   let data:any=null;
   switch(action){
+   case "reports_summary":{
+    if(role!=="admin"&&role!=="manager")bad("Staff access required",403);
+    const people=ok(await supabase.from("user_profiles").select("id,display_name,store_code,manager_id,active").order("created_at",{ascending:false}));
+    const allowed=role==="admin"?people:people.filter((p:any)=>p.manager_id===user.id);
+    const allowedIds=allowed.map((p:any)=>p.id);
+    const attempts=allowedIds.length?ok(await supabase.from("assessment_attempts")
+      .select("id,trainee_id,assignment_id,score_percent,passed,status,started_at,submitted_at,correct_count")
+      .in("trainee_id",allowedIds).order("started_at",{ascending:false}).limit(1000)):[];
+    const assignments=allowedIds.length?ok(await supabase.from("assessment_assignments")
+      .select("id,trainee_id,assessment_id,status,assigned_at,due_at")
+      .in("trainee_id",allowedIds).order("assigned_at",{ascending:false}).limit(1000)):[];
+    data={people:allowed,attempts,assignments};break;
+   }
+   case "report_attempt":{
+    const attemptId=uid(body.attempt_id);
+    const attempt=ok(await supabase.from("assessment_attempts").select("*").eq("id",attemptId).maybeSingle());
+    if(!attempt||attempt.status!=="submitted")bad("Submitted attempt not found",404);
+    if(attempt.trainee_id!==user.id && role!=="admin"){
+      if(role!=="manager")bad("Report access denied",403);
+      const managed=ok(await supabase.from("user_profiles").select("manager_id").eq("id",attempt.trainee_id).maybeSingle());
+      if(!managed||managed.manager_id!==user.id)bad("Report access denied",403);
+    }
+    const questions=ok(await supabase.from("attempt_questions").select("id,question_id,displayed_options").eq("attempt_id",attempt.id));
+    if(!questions.length)bad("No assessment questions found");
+    const qids=questions.map((x:any)=>x.question_id);
+    const ids=questions.map((x:any)=>x.id);
+    const [bankResult,answerResult,keyResult,personResult]=await Promise.all([
+      supabase.from("question_bank").select("id,category,options").in("id",qids),
+      supabase.from("attempt_answers").select("attempt_question_id,selected_index").in("attempt_question_id",ids),
+      supabase.rpc("rboas_get_scoring_keys",{p_question_ids:qids}),
+      supabase.from("user_profiles").select("id,display_name,store_code,employee_code").eq("id",attempt.trainee_id).single()
+    ]);
+    const bank=ok(bankResult),answers=ok(answerResult),keys=ok(keyResult),person=ok(personResult);
+    const bankMap=new Map(bank.map((x:any)=>[x.id,x]));
+    const answerMap=new Map(answers.map((x:any)=>[x.attempt_question_id,x.selected_index]));
+    const keyMap=new Map(keys.map((x:any)=>[x.question_id,x.correct_option_index]));
+    const breakdown=CATS.map(name=>({category:name,correct:0,total:0}));
+    let answered=0;
+    for(const row of questions){
+      const q=bankMap.get(row.question_id),correct=keyMap.get(row.question_id);
+      if(!q||correct===undefined)bad("Scoring data unavailable",503);
+      const item=breakdown.find(x=>x.category===q.category);
+      if(!item)bad("Unknown assessment category",503);
+      item.total++;
+      const chosen=answerMap.get(row.id);
+      if(chosen!==undefined){
+        answered++;
+        if(row.displayed_options[chosen]===q.options[correct])item.correct++;
+      }
+    }
+    data={attempt:{
+      id:attempt.id,score_percent:attempt.score_percent,passed:attempt.passed,
+      correct_count:attempt.correct_count,submitted_at:attempt.submitted_at,
+      started_at:attempt.started_at,answered,total:questions.length,
+      category_breakdown:breakdown
+    },trainee:person};
+    break;
+   }
+   case "assessment_settings":{
+    adminOnly();
+    const assessment_id=uid(body.assessment_id);
+    const duration_minutes=Number(body.duration_minutes);
+    const passing_percent=Number(body.passing_percent);
+    const allowed_attempts=Number(body.allowed_attempts);
+    if(!Number.isInteger(duration_minutes)||duration_minutes<10||duration_minutes>120)bad("Duration must be 10 to 120 minutes");
+    if(!Number.isInteger(passing_percent)||passing_percent<50||passing_percent>100)bad("Pass mark must be 50-100%");
+    if(!Number.isInteger(allowed_attempts)||allowed_attempts<1||allowed_attempts>3)bad("Attempts must be 1-3");
+    const existing=ok(await supabase.from("assessments").select("id,published").eq("id",assessment_id).maybeSingle());
+    if(!existing)bad("Assessment not found",404);
+    if(existing.published)bad("Unpublish before changing exam settings");
+    data=ok(await supabase.from("assessments").update({
+      duration_minutes,passing_percent,allowed_attempts
+    }).eq("id",assessment_id).select("id,duration_minutes,passing_percent,allowed_attempts").single());
+    await record(user.id,"update_assessment_settings","assessments",assessment_id,data);
+    break;
+   }
    case "invite":{
     adminOnly();const email=text(body.email,"email",254,6).toLowerCase();
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))bad("Invalid email");
