@@ -34,11 +34,22 @@ const SAMPLE_QUESTIONS=[
  {category:"Insurance & Rejections",prompt:"What should happen when an insurance rejection requires a pharmacist's authorization?",options:["Consult the pharmacist","Override it without approval","Change the patient record arbitrarily","Ignore the rejection"]},
  {category:"LTC Billing",prompt:"What must be verified before submitting an LTC billing claim?",options:["Facility eligibility and billing instructions","Marketing coupons only","The technician's own schedule","The store's social-media activity"]},
  {category:"Coupons & Follow-Up",prompt:"What should be checked before applying a manufacturer savings coupon?",options:["Plan and patient eligibility","The employee work shift","The patient's email newsletter","The store's delivery schedule"]}];
-const PRACTICE=[
- {category:"ERX Processing",prompt:"Where should a billing technician review electronic prescriptions requiring action?",options:["ERX Action List","Employee schedule","Inventory purchase history","Marketing dashboard"],correct:0},
- {category:"Insurance & Rejections",prompt:"What is the appropriate action when a DUR override requires pharmacist approval?",options:["Apply the override without permission","Consult the pharmacist before proceeding","Change the prescription quantity randomly","Mark the prescription as completed"],correct:1},
- {category:"Coupons & Follow-Up",prompt:"Before applying a manufacturer coupon, what should you confirm?",options:["Eligibility under the coupon terms","Only the store's opening time","Only the employee's name","The patient's preferred advertising channel"],correct:0}
-];
+const DEMO_BANK = Array.isArray(window.RBOAS_DEMO_BANK) ? window.RBOAS_DEMO_BANK : [];
+const PRACTICE = [];
+function randomize(items){ const a=[...items]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function preparePractice(){
+ const selection = CATEGORIES.flatMap(cat=>randomize(DEMO_BANK.filter(q=>q.category===cat)).slice(0,5));
+ if(selection.length!==25){toast("Question bank unavailable. Refresh the page.");return false;}
+ PRACTICE.splice(0,PRACTICE.length,...randomize(selection.map(q=>{
+  const picked=q.options.map((label,index)=>({label,original:index}));
+  const order=randomize(picked);
+  return {category:q.category,prompt:q.prompt,options:order.map(x=>x.label),correct:order.findIndex(x=>x.original===q.correct)};
+ })));
+ state.question=0;state.choices={};state.quizFinished=false;
+ state.practiceEndsAt=Date.now()+30*60*1000;state.practiceStarted=true;
+ return true;
+}
+function remainingTime(){if(!state.practiceEndsAt)return "30:00";const remaining=Math.max(0,Math.ceil((state.practiceEndsAt-Date.now())/1000));return String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");}
 function demo(){return !state.signedIn;}
 function role(){return demo()?"preview":state.role;}
 function me(){return state.profile&&state.profile.display_name||state.user&&state.user.email||"Guest reviewer";}
@@ -55,7 +66,7 @@ function render(){
  '<div class="brand-icon">R</div><div><div class="brand-title">RBOAS<span style="color:#58a7f9">.</span></div><div class="brand-sub">ASSESSMENT SYSTEM</div></div></a>'+
  '<div class="side-label">WORKSPACE</div><nav class="nav">'+all.map(navButton).join("")+'</nav><div class="side-spacer"></div>'+
  '<div class="side-help"><div class="side-help-icon">'+svg("cap")+'</div><h4>Built for better onboarding</h4><p>Structured learning. Objective evaluations. Confident pharmacy billing teams.</p></div>'+
- '<div class="side-foot">REMOTE BILLING · TRAINING & DEVELOPMENT<br><span style="line-height:2.5">Phase 1 · Experience foundation</span></div></aside>'+
+ '<div class="side-foot">REMOTE BILLING · TRAINING & DEVELOPMENT<br><span style="line-height:2.5">Phase 2 · Management-ready demonstration</span></div></aside>'+
  '<main class="main"><header class="topbar"><div class="mobile-top"><button aria-label="Toggle menu" id="mobileMenu">'+svg("menu")+'</button>RBOAS</div>'+
  '<div class="breadcrumb">Workspace&nbsp; / &nbsp;<strong>'+esc(title)+'</strong></div><div class="top-actions">'+
  '<span class="mode-pill"><span class="dot"></span>'+esc(label())+'</span>'+
@@ -72,7 +83,7 @@ function overview(){
  const submitted=demo()?[92,84,68,88,76,83]:state.attempts.filter(x=>x.status==="submitted"&&x.score_percent!=null).map(x=>Number(x.score_percent));
  const average=submitted.length?Math.round(submitted.reduce((a,b)=>a+b,0)/submitted.length):0;
  const passed=demo()?15:state.attempts.filter(x=>x.passed===true).length;
- let counts=CATEGORIES.map((cat,i)=>({cat:cat,value:demo()?[8,7,6,9,8][i]:state.questions.filter(x=>x.category===cat).length}));
+ let counts=CATEGORIES.map((cat,i)=>({cat:cat,value:demo()?DEMO_BANK.filter(x=>x.category===cat).length:state.questions.filter(x=>x.category===cat).length}));
  return header("Good to see you"+(demo()?", reviewer":"")+".","A clear view of your remote billing onboarding journey.")+
  '<section class="hero"><div class="hero-content"><div class="eyebrow">'+svg("activity")+' TRAINING INTELLIGENCE, SIMPLIFIED</div>'+
  '<h2>Stronger billing teams start with better assessments.</h2>'+
@@ -84,13 +95,13 @@ function overview(){
  metric("Average score",average+"%","results",demo()?"Illustrative sample":"Submitted results")+
  metric("Passed assessments",passed,"shield",demo()?"Illustrative sample":"Passing results")+'</section>'+
  '<section class="section-grid"><div class="card"><div class="section-heading"><h3>Question bank coverage</h3><button class="mini-link" data-nav="questions">View question bank →</button></div>'+
- '<p class="muted">Question distribution across five core billing topics. Target: 10 approved questions per category.</p>'+
+ '<p class="muted">Question distribution across five core billing topics. Draft: 10 questions per category, awaiting SOP and management approval.</p>'+
  counts.map(x=>'<div class="category-line"><span>'+esc(x.cat)+'</span><div class="track"><div class="fill" style="width:'+Math.min(100,10*x.value)+'%"></div></div><strong>'+x.value+'/10</strong></div>').join("")+
  '</div><div class="card"><div class="section-heading"><h3>Development milestones</h3><span class="status blue">Phase 1</span></div>'+
  activity("Database foundation","Supabase tables, authorization policies and protected answer keys","check")+
  activity("Dashboard experience","Responsive management interface and role-aware navigation","check")+
  activity("Live authentication","Supabase login connected; accounts to be provisioned","lock")+
- activity("Exam engine","Randomization, secure grading and retakes are next","clock")+
+ activity("Management quiz demo","25 random draft questions, 30-minute countdown and sample score report","check")+
  '</div></section>';
 }
 function activity(title,sub,icon){return '<div class="activity"><span class="activity-mark '+(icon==="lock"||icon==="clock"?"blue":"")+'">'+svg(icon)+'</span><div><h4>'+esc(title)+'</h4><p>'+esc(sub)+'</p></div></div>';}
@@ -109,20 +120,20 @@ function trainees(){
 }
 function empty(title,description){return '<div class="empty"><span class="empty-icon">'+svg("users")+'</span><h3>'+esc(title)+'</h3><p>'+esc(description)+'</p></div>';}
 function questions(){
- const rows=demo()?SAMPLE_QUESTIONS:state.questions;
+ const rows=demo()?DEMO_BANK:state.questions;
  return header("Question bank","Organize the foundational billing knowledge required after five days of training.",'<button class="subtle-btn" disabled title="Secure question authoring and answer keys are the next milestone">Add question · Next phase</button>')+
- '<section class="mini-cards">'+CATEGORIES.map((c,i)=>'<div class="mini-card"><span class="badge-icon">'+svg("questions")+'</span><strong>'+ (demo()?10:rows.filter(x=>x.category===c).length)+'</strong><p>'+esc(c)+'</p><small>'+(demo()?"Planned per category":"Approved questions in bank")+'</small></div>').join("")+'</section>'+
- '<div class="card"><div class="section-heading"><h3>Question library</h3><span class="status blue">'+(demo()?"Example questions — not approved":"Database records")+'</span></div>'+
- (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Question</th><th>Category</th><th>Difficulty</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>'<tr><td style="max-width:480px;color:#344861;font-weight:700">'+esc(x.prompt)+'</td><td>'+esc(x.category)+'</td><td>'+esc(x.difficulty||"basic")+'</td><td><span class="status green">'+(demo()?"Example":x.active?"Active":"Inactive")+'</span></td></tr>').join("")+'</tbody></table></div>':
+ '<section class="mini-cards">'+CATEGORIES.map((c,i)=>'<div class="mini-card"><span class="badge-icon">'+svg("questions")+'</span><strong>'+ (demo()?DEMO_BANK.filter(x=>x.category===c).length:rows.filter(x=>x.category===c).length)+'</strong><p>'+esc(c)+'</p><small>'+(demo()?"Planned per category":"Approved questions in bank")+'</small></div>').join("")+'</section>'+
+ '<div class="card"><div class="section-heading"><h3>Question library</h3><span class="status blue">'+(demo()?"50 draft questions · management review required":"Database records · draft questions inactive")+'</span></div>'+
+ (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Question</th><th>Category</th><th>Difficulty</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>'<tr><td style="max-width:480px;color:#344861;font-weight:700">'+esc(x.prompt)+'</td><td>'+esc(x.category)+'</td><td>'+esc(x.difficulty||"basic")+'</td><td><span class="status green">'+(demo()?"Draft":x.active?"Active":"Draft")+'</span></td></tr>').join("")+'</tbody></table></div>':
  empty("The question bank is empty","Administrators will be able to add 50 reviewed questions with securely stored answer keys."))+'</div>';
 }
 function assessments(){
  const rows=demo()?[{id:"demo",title:"Five-Day Remote Billing Onboarding Assessment",description:"Core onboarding assessment",duration_minutes:30,question_count:25,passing_percent:80,published:false}]:state.assessments;
  return header(role()==="trainee"?"My assessments":"Assessments","Configure consistent evaluations of core billing competencies.")+
- '<div class="notice"><strong>Exam specifications:</strong> A 50-question bank, 25 randomly assigned per attempt, five categories, 30-minute timer and an 80% recommended passing threshold. The secure exam engine is scheduled for the next phase.</div>'+
+ '<div class="notice"><strong>Exam specifications:</strong> A 50-question bank, 25 randomly assigned per attempt, five categories, 30-minute timer and an 80% recommended passing threshold. The interactive 25-question preview is ready; official server-side grading requires activation after SOP review.</div>'+
  (rows.length?rows.map(x=>'<div class="card" style="margin-bottom:16px"><div class="section-heading"><div><h3 style="font-size:16px;margin-bottom:8px">'+esc(x.title)+'</h3><p class="muted">'+esc(x.description||"Structured onboarding evaluation")+'</p></div><span class="status '+(x.published?"green":"amber")+'">'+(x.published?"Published":"Draft")+'</span></div>'+
  '<div class="quiz-meta"><span>'+svg("questions")+' '+esc(x.question_count)+' questions</span><span>'+svg("clock")+' '+esc(x.duration_minutes)+' minutes</span><span>'+svg("shield")+' Pass: '+esc(x.passing_percent)+'%</span></div>'+
- '<button class="outline" data-nav="practice">View sample exam '+svg("arrow")+'</button></div>').join(""):
+ '<button class="outline" data-nav="practice">Start randomized 25-question demo '+svg("arrow")+'</button></div>').join(""):
  '<div class="card">'+empty("No accessible assessments","Your assigned assessments will appear here after an administrator publishes and assigns them.")+'</div>');
 }
 function results(){
@@ -147,18 +158,40 @@ function settings(){
 }
 function setRow(k,v){return '<div class="settings-row"><b>'+esc(k)+'</b><span>'+esc(v)+'</span></div>';}
 function practice(){
+ if(!state.practiceStarted&&!preparePractice())return header("Assessment unavailable","The draft question bank could not be loaded.");
+ const count=PRACTICE.length;
+ const answered=Object.keys(state.choices).length;
+ const score=PRACTICE.reduce((sum,q,index)=>sum+(state.choices[index]===q.correct?1:0),0);
+ if(state.quizFinished){
+  const pass=score>=20;
+  const categoryPerformance=CATEGORIES.map(category=>{
+   const positions=PRACTICE.map((q,i)=>({q,i})).filter(item=>item.q.category===category);
+   return {name:category,correct:positions.filter(x=>state.choices[x.i]===x.q.correct).length};
+  });
+  return '<div class="quiz-container">'+header("Assessment preview completed","An illustrative score report for management review. This result is not stored.")+
+  '<div class="card" style="text-align:center;padding:35px 26px">'+
+  '<div class="empty-icon">'+svg("shield")+'</div><p class="small-caps">DEMONSTRATION RESULT · NOT AN EMPLOYEE RECORD</p>'+
+  '<h2 style="font-size:32px;margin:12px 0">'+score+' / '+count+' <span style="color:#8496ad;font-size:18px">('+Math.round(score/count*100)+'%)</span></h2>'+
+  '<span class="status '+(pass?'green':'amber')+'">'+(pass?'Meets suggested 80% threshold':'Below suggested 80% threshold')+'</span>'+
+  '<p class="muted" style="line-height:1.7;margin:18px 0">Answered '+answered+' of '+count+' questions. This demonstration uses draft content and does not count as a trainee assessment.</p>'+
+  '<div class="section-grid" style="margin:24px 0;text-align:left"><div><h3 style="font-size:14px">Category breakdown</h3>'+
+  categoryPerformance.map(c=>'<div class="category-line"><span>'+esc(c.name)+'</span><div class="track"><div class="fill" style="width:'+(c.correct*20)+'%"></div></div><strong>'+c.correct+'/5</strong></div>').join('')+
+  '</div><div class="card" style="background:#f5faff"><h3 style="font-size:13px">Next steps</h3><p class="muted" style="line-height:1.9;margin-top:12px">A manager can review category gaps, assign retraining and authorize another attempt when the live assessment engine is activated.</p></div></div>'+
+  '<div class="button-row" style="justify-content:center"><button class="primary" data-action="resetQuiz">Generate a new random test</button><button class="outline" data-action="printResult">Print sample result</button><button class="outline" data-nav="overview">Back to dashboard</button></div></div></div>';
+ }
  const q=PRACTICE[state.question];
- const score=PRACTICE.reduce((a,q,i)=>a+(state.choices[i]===q.correct?1:0),0);
- if(state.quizFinished)return '<div class="quiz-container">'+header("Practice complete","This is a simulated learning experience, not an official assessment.")+
- '<div class="card" style="text-align:center;padding:48px 28px"><div class="empty-icon">'+svg("shield")+'</div><h2 style="font-size:27px;margin:9px 0">You scored '+score+' / '+PRACTICE.length+'</h2><p class="muted" style="line-height:1.9;margin:10px 0 23px">This is a sample quiz using instructional questions only. No result was saved to the database.</p><button class="primary" data-action="resetQuiz">Try again</button> <button class="outline" data-nav="overview">Back to dashboard</button></div></div>';
- return '<div class="quiz-container"><div class="quiz-header"><div><div class="eyebrow">'+svg("cap")+' EXAM EXPERIENCE PREVIEW</div><h1 class="header-title">Knowledge assessment</h1></div><span class="status blue">Practice only</span></div>'+
- '<div class="notice warning">Sample questions for interface testing only. They are not from the approved 50-question bank and results are not recorded.</div>'+
- '<div class="quiz-meta"><span>Question '+(state.question+1)+' of '+PRACTICE.length+'</span><span>'+esc(q.category)+'</span><span>Untimed demo</span></div>'+
- '<div class="quiz-progress"><div style="width:'+((state.question+1)*100/PRACTICE.length)+'%"></div></div>'+
- '<div class="card question-card"><div class="small-caps">SELECT ONE ANSWER</div><h2>'+esc(q.prompt)+'</h2><div class="answers">'+q.options.map((v,i)=>
- '<button class="option '+(state.choices[state.question]===i?"chosen":"")+'" data-choice="'+i+'"><span class="option-index">'+String.fromCharCode(65+i)+'</span>'+esc(v)+'</button>').join("")+
- '</div><div class="quiz-footer"><button class="outline" data-action="prevQuiz" '+(state.question===0?"disabled":"")+'>Previous</button>'+
- '<button class="primary" data-action="nextQuiz" '+(state.choices[state.question]===undefined?"disabled":"")+'>'+ (state.question===PRACTICE.length-1?"Finish sample quiz":"Next question")+' '+svg("arrow")+'</button></div></div></div>';
+ const numbering='<div class="question-jump">'+PRACTICE.map((_,i)=>'<button aria-label="Go to question '+(i+1)+'" title="Question '+(i+1)+'" data-jump="'+i+'" class="jump '+(i===state.question?'current':(state.choices[i]!==undefined?'answered':''))+'">'+(i+1)+'</button>').join('')+'</div>';
+ return '<div class="quiz-container">'+
+ '<div class="quiz-header"><div><div class="eyebrow">'+svg("cap")+' 25-QUESTION MANAGEMENT DEMO</div><h1 class="header-title">Remote Billing Assessment</h1></div><span class="status blue">Draft practice only</span></div>'+
+ '<div class="notice warning"><strong>Presentation preview:</strong> 25 questions selected randomly from 50 draft questions (5 per category). An official assessment requires reviewed, approved questions and staff authorization.</div>'+
+ '<div class="quiz-meta"><span>Question '+(state.question+1)+' / '+count+'</span><span>'+answered+' answered</span><span>'+esc(q.category)+'</span><span style="font-weight:800;color:#2675d3">'+svg("clock")+' <span id="demo-timer">'+remainingTime()+'</span></span></div>'+
+ '<div class="quiz-progress"><div style="width:'+((answered/count)*100)+'%"></div></div>'+
+ '<div class="card question-card"><div class="small-caps">SELECT ONE ANSWER</div><h2>'+esc(q.prompt)+'</h2>'+
+ '<div class="answers">'+q.options.map((opt,i)=>'<button class="option '+(state.choices[state.question]===i?'chosen':'')+'" data-choice="'+i+'"><span class="option-index">'+String.fromCharCode(65+i)+'</span>'+esc(opt)+'</button>').join('')+'</div>'+
+ '<div class="quiz-footer"><button class="outline" data-action="prevQuiz" '+(state.question===0?'disabled':'')+'>Previous</button>'+
+ '<div class="button-row">'+(state.question===count-1?'<button class="primary" data-action="nextQuiz">Submit sample exam '+svg("check")+'</button>':'<button class="primary" data-action="nextQuiz">Next question '+svg("arrow")+'</button>')+'</div></div>'+
+ '<div class="divider"></div><p class="muted" style="margin-bottom:12px">Jump to any question:</p>'+numbering+
+ '</div></div>';
 }
 function toast(message){const t=document.createElement("div");t.className="toast";t.textContent=message;document.body.appendChild(t);setTimeout(()=>t.remove(),3300);}
 async function initializeAuth(){
@@ -198,15 +231,15 @@ async function loadData(){
 }
 document.addEventListener("click",async function(e){
  const menu=e.target.closest("#mobileMenu");if(menu){document.getElementById("sidebar")?.classList.toggle("open");return;}
- const link=e.target.closest("[data-nav]");if(link){e.preventDefault();state.page=link.dataset.nav;document.getElementById("sidebar")?.classList.remove("open");window.scrollTo({top:0,behavior:"smooth"});render();return;}
- const ch=e.target.closest("[data-choice]");if(ch){state.choices[state.question]=Number(ch.dataset.choice);render();return;}
+ const link=e.target.closest("[data-nav]");if(link){e.preventDefault();if(link.dataset.nav==="practice"&&!state.practiceStarted)preparePractice();state.page=link.dataset.nav;document.getElementById("sidebar")?.classList.remove("open");window.scrollTo({top:0,behavior:"smooth"});render();return;}
+ const ch=e.target.closest("[data-choice]");if(ch){state.choices[state.question]=Number(ch.dataset.choice);render();return;}const jump=e.target.closest("[data-jump]");if(jump){state.question=Number(jump.dataset.jump);render();return;}
  const btn=e.target.closest("[data-action]");if(!btn)return;
  const action=btn.dataset.action;
  if(action==="login"){const d=document.getElementById("authDialog");d.showModal();return;}
  if(action==="logout"){if(state.client)await state.client.auth.signOut();state.signedIn=false;state.profile=null;state.user=null;state.role="preview";state.page="overview";state.trainees=[];state.questions=[];state.attempts=[];state.assignments=[];state.assessments=[];render();toast("Signed out");return;}
  if(action==="prevQuiz"){state.question=Math.max(0,state.question-1);render();return;}
- if(action==="nextQuiz"){if(state.choices[state.question]===undefined)return;if(state.question===PRACTICE.length-1)state.quizFinished=true;else state.question++;render();return;}
- if(action==="resetQuiz"){state.quizFinished=false;state.choices={};state.question=0;render();}
+ if(action==="nextQuiz"){if(state.question===PRACTICE.length-1){if(!window.confirm("Submit this practice exam? Unanswered questions count as incorrect."))return;state.quizFinished=true;}else state.question++;render();return;}
+ if(action==="resetQuiz"){preparePractice();render();return;}if(action==="printResult"){window.print();return;}
 });
 document.addEventListener("input",function(e){
  if(e.target.id==="traineeFilter"){const q=e.target.value.toLowerCase().trim();document.querySelectorAll("tr[data-search]").forEach(row=>{row.hidden=!row.dataset.search.includes(q);});}
@@ -226,4 +259,5 @@ document.getElementById("loginForm").addEventListener("submit",async function(e)
  }catch(error){msg.textContent=error.message||"Unable to sign in. Check your credentials.";}
  finally{button.disabled=false;button.textContent="Sign in securely";}
 });
+setInterval(()=>{if(state.page==="practice"&&state.practiceStarted&&!state.quizFinished){const timer=document.getElementById("demo-timer");if(timer)timer.textContent=remainingTime();if(Date.now()>=state.practiceEndsAt){state.quizFinished=true;render();toast("Practice time completed");}}},1000);
 render();initializeAuth();
