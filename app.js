@@ -56,13 +56,13 @@ function demo(){return !state.signedIn;}
 function role(){return demo()?"preview":state.role;}
 function me(){return state.profile&&state.profile.display_name||state.user&&state.user.email||"Guest reviewer";}
 function initials(name){return String(name||"T").split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();}
-function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["presentation","Project tour","cap"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["presentation","Project tour","cap"],["settings","Settings","settings"]];}
+function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["presentation","Project tour","cap"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["presentation","Project tour","cap"],["launch","Launch readiness","shield"],["settings","Settings","settings"]];}
 function label(){return demo()?"Design preview":role()==="admin"?"Administrator":role()==="manager"?"Manager / HR":"Trainee";}
 function navButton(item){return '<button class="nav-button '+(state.page===item[0]?"active":"")+'" data-nav="'+item[0]+'">'+svg(item[2])+esc(item[1])+'</button>';}
-function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "presentation":return presentation();case "report":return report();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
+function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "presentation":return presentation();case "launch":return launchReadiness();case "report":return report();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
 function render(){
  const all=navItems();if(!all.some(x=>x[0]===state.page)&&state.page!=="practice"&&state.page!=="report"&&state.page!=="take")state.page="overview";
- const title=state.page==="presentation"?"Management tour":state.page==="report"?"Individual report":state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
+ const title=state.page==="presentation"?"Management tour":state.page==="launch"?"Launch readiness":state.page==="report"?"Individual report":state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
  document.getElementById("app").innerHTML=
  '<div class="app-shell"><aside class="sidebar" id="sidebar"><a href="#" class="brand" data-nav="overview">'+
  '<div class="brand-icon">R</div><div><div class="brand-title">RBOAS<span style="color:#58a7f9">.</span></div><div class="brand-sub">ASSESSMENT SYSTEM</div></div></a>'+
@@ -228,6 +228,43 @@ function report(){
  '<p class="muted" style="margin-top:9px;line-height:1.8">Suggested discussion: Review categories with missed questions, verify practical billing skills with supervised exercises, and document the final onboarding recommendation separately.</p>'+
  '<p class="tagline">Confidential training record · No patient information included.</p></div></div>';
 }
+function launchReadiness(){
+ const admin=role()==="admin";
+ const isPublic=demo();
+ const approved=isPublic?null:state.questions.filter(q=>q.active).length;
+ const total=isPublic?50:state.questions.length;
+ const steps=[
+  {name:"Activate the first administrator",status:admin?"Ready":"Needs activation",
+   description:admin?"Your active administrator account is recognized by Supabase.":"A verified Supabase Auth account needs an administrator role and matching active RBOAS profile. Admin rights cannot be assigned through an untrusted public signup form.",
+   action:"Open Supabase Auth",url:"https://supabase.com/dashboard/project/dgusnyfhcizbmdmryjbj/auth/users"},
+  {name:"Configure invitation redirects",status:"Needs verification",
+   description:"Confirm the production RBOAS domain under Authentication → URL Configuration before invitations are sent.",
+   action:"Open URL settings",url:"https://supabase.com/dashboard/project/dgusnyfhcizbmdmryjbj/auth/url-configuration"},
+  {name:"Approve the assessment bank",status:approved===50?"Ready":approved===null?"Review required":approved+" of "+total+" approved",
+   description:"Verify the 40 supplied questions and 10 supplemental drafts against the current authorized SOPs, then approve each. The official exam must remain unpublished until then.",
+   action:"Review questions",page:"questions"},
+  {name:"Publish and assign the assessment",status:"Pending approval",
+   description:"After question approval, publish the assessment and assign it to an active trainee, with optional opening and due dates.",
+   action:"Manage assessments",page:"assessments"},
+  {name:"Run an authorized end-to-end trial",status:"Not yet verified",
+   description:"Using an explicitly authorized test trainee, verify invitation, password setup, 25 questions, time limit, submission, score, and manager report.",
+   action:"View reports",page:"results"},
+  {name:"Secure the project repository",status:"Requires owner action",
+   description:"The GitHub repository is public and historical commits contained answer-key seeds. Make it private and retire any previously exposed questions before production use.",
+   action:"GitHub repository settings",url:"https://github.com/developeramin25/RBOAS-System/settings"}
+ ];
+ return header("Production launch readiness","A practical implementation checklist for administrator and management review.")+
+ '<div class="notice warning"><strong>Current stage:</strong> Presentation-ready interface and deployed database/API; real trainee onboarding remains gated by administrator activation, question approval, and a full authorized acceptance test.</div>'+
+ '<div class="launch-grid">'+steps.map((step,i)=>
+ '<article class="card readiness-item"><div class="readiness-top"><span class="small-caps">STEP '+(i+1)+'</span><span class="status '+(step.status==="Ready"?"green":"amber")+'">'+esc(step.status)+'</span></div>'+
+ '<h3>'+esc(step.name)+'</h3><p>'+esc(step.description)+'</p>'+
+ (step.url?'<a class="outline link-action" href="'+step.url+'" rel="noopener noreferrer" target="_blank">'+esc(step.action)+' '+svg("arrow")+'</a>':
+ '<button class="outline" data-nav="'+step.page+'">'+esc(step.action)+' '+svg("arrow")+'</button>')+
+ '</article>').join("")+'</div>'+
+ '<div class="card spaced"><div class="section-heading"><h3>What can already be demonstrated?</h3><span class="status green">Demo ready</span></div>'+
+ '<p class="muted" style="line-height:1.8;margin-bottom:15px">The management tour, responsive dashboard, sample 25-question quiz, sample scoring and example reports can be shown without creating an employee account. These do not affect production records.</p>'+
+ '<button class="primary" data-nav="presentation">Open management tour '+svg("arrow")+'</button></div>';
+}
 function presentation(){
  const blocks=[
   {n:"01",icon:"users",heading:"Set up the trainee",explain:"An authorized administrator invites the trainee, sets the store and manager, and assigns the five-day onboarding exam.",action:"Trainee directory",page:"trainees"},
@@ -264,7 +301,7 @@ function settings(){
  const canEdit=!demo()&&role()==="admin"&&!config.published;
  const form=role()==="admin"&&!demo()?
  '<div class="card spaced"><div class="section-heading"><h3>Administrator assessment controls</h3><span class="status '+(config.published?"amber":"blue")+'">'+(config.published?"Unpublish to edit":"Draft configuration")+'</span></div>'+
- '<p class="muted" style="margin-bottom:15px">Official assessments continue to draw exactly questions from the approved training modules and supplementary topics.</p>'+
+ '<p class="muted" style="margin-bottom:15px">Official assessments draw 25 questions representing each of the nine approved training topics.</p>'+
  '<form id="settingsForm" class="settings-form"><input type="hidden" name="assessment_id" value="'+esc(config.id)+'"/>'+
  '<label>Duration (minutes)<input type="number" name="duration_minutes" min="10" max="120" required value="'+esc(config.duration_minutes)+'" '+(!canEdit?"disabled":"")+'/></label>'+
  '<label>Pass mark (%)<input type="number" name="passing_percent" min="50" max="100" required value="'+esc(config.passing_percent)+'" '+(!canEdit?"disabled":"")+'/></label>'+
