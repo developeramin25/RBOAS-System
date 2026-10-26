@@ -358,7 +358,11 @@ async function api(action,payload={}){
 async function reload(){await loadData();render();}
 async function beginOfficial(assignment_id){
  const started=await api("exam_start",{assignment_id});
- const received=await api("exam_get",{attempt_id:started.attempt_id});
+ let received=await api("exam_get",{attempt_id:started.attempt_id});
+ if(received.attempt.status==="in_progress" && Date.now()>=Date.parse(received.attempt.expires_at)){
+   await api("exam_submit",{attempt_id:started.attempt_id});
+   received=await api("exam_get",{attempt_id:started.attempt_id});
+ }
  state.liveExam=received.attempt;
  state.liveQuestions=received.questions||[];
  state.liveAnswers=received.answers||{};
@@ -594,7 +598,9 @@ handleAdminForm("staffForm","staffMessage",f=>({
  active:document.getElementById("staffActive").checked,role:f.get("role")
 }),"staff_update","staffDialog");
 handleAdminForm("assignmentForm","assignmentMessage",f=>({
- trainee_id:f.get("trainee_id"),assessment_id:f.get("assessment_id")
+ trainee_id:f.get("trainee_id"),assessment_id:f.get("assessment_id"),
+ available_from:f.get("available_from")?new Date(f.get("available_from")).toISOString():null,
+ due_at:f.get("due_at")?new Date(f.get("due_at")).toISOString():null
 }),"assignment_create","assignmentDialog");
 
 setInterval(()=>{if(state.page==="take"&&state.liveExam&&state.liveExam.status==="in_progress"){const el=document.getElementById("official-timer");if(el){const n=Math.max(0,Math.ceil((Date.parse(state.liveExam.expires_at)-Date.now())/1000));el.textContent=String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");if(n===0&&!state.liveSubmitting){submitOfficial(true);}}}},1000);
