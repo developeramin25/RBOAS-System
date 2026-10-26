@@ -141,7 +141,7 @@ function assessments(){
    const trainee=role()==="trainee";
    if(trainee&&!related.length)return "";
    const action=isPreview?'<button class="primary" data-nav="practice">Try the randomized assessment demo '+svg("arrow")+'</button>':
-    trainee?related.map(a=>'<button class="primary" data-start-assignment="'+esc(a.id)+'">'+(a.status==="completed"?"View previous result":"Start / Resume assessment")+'</button>').join(" "):
+    trainee?related.map(a=>a.status==="completed"?'<button class="outline" data-nav="results">View submitted result</button>':'<button class="primary" data-start-assignment="'+esc(a.id)+'">Start / Resume assessment</button>').join(" "):
     canAdmin?'<button class="outline" data-publish-assessment="'+esc(x.id)+'" data-publish-status="'+(!x.published)+'">'+(x.published?"Unpublish":"Publish after review")+'</button>':"";
    return '<div class="card" style="margin-bottom:16px"><div class="section-heading"><div><h3 style="font-size:16px;margin-bottom:8px">'+esc(x.title)+'</h3><p class="muted">'+esc(x.description||"Billing competency assessment")+'</p></div><span class="status '+(x.published?"green":"amber")+'">'+(x.published?"Published":"Draft")+'</span></div>'+
    '<div class="quiz-meta"><span>'+svg("questions")+' '+x.question_count+' questions</span><span>'+svg("clock")+' '+x.duration_minutes+' minutes</span><span>'+svg("shield")+' Pass '+x.passing_percent+'%</span></div>'+
@@ -351,8 +351,9 @@ async function beginOfficial(assignment_id){
  state.liveAnswers=received.answers||{};
  state.liveIndex=0;state.liveFinished=false;state.page="take";render();
 }
-async function submitOfficial(){
- if(!window.confirm("Submit your official assessment? You cannot change answers afterward."))return;
+async function submitOfficial(auto=false){
+ if(state.liveSubmitting)return;
+ if(!auto&&!window.confirm("Submit your official assessment? You cannot change answers afterward."))return;
  state.liveSubmitting=true;
  try{
   const result=await api("exam_submit",{attempt_id:state.liveExam.id});
@@ -561,5 +562,5 @@ handleAdminForm("assignmentForm","assignmentMessage",f=>({
  trainee_id:f.get("trainee_id"),assessment_id:f.get("assessment_id")
 }),"assignment_create","assignmentDialog");
 
-setInterval(()=>{if(state.page==="take"&&state.liveExam&&state.liveExam.status==="in_progress"){const el=document.getElementById("official-timer");if(el){const n=Math.max(0,Math.ceil((Date.parse(state.liveExam.expires_at)-Date.now())/1000));el.textContent=String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");if(n===0)toast("Time expired. Submit your recorded answers.");}}},1000);
+setInterval(()=>{if(state.page==="take"&&state.liveExam&&state.liveExam.status==="in_progress"){const el=document.getElementById("official-timer");if(el){const n=Math.max(0,Math.ceil((Date.parse(state.liveExam.expires_at)-Date.now())/1000));el.textContent=String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");if(n===0&&!state.liveSubmitting){submitOfficial(true);}}}},1000);
 render();initializeAuth();
