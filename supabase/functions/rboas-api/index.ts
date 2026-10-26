@@ -134,6 +134,14 @@ Deno.serve(async req=>{
     await record(user.id,"invite_user","user_profiles",invitedUser.id,{role:newRole});
     break;
    }
+   case "staff_get":{
+    adminOnly();
+    const targetId=uid(body.id);
+    const profile=ok(await supabase.from("user_profiles").select("id,display_name,employee_code,store_code,active,manager_id,email").eq("id",targetId).maybeSingle());
+    if(!profile)bad("Staff account not found",404);
+    const account=ok(await supabase.auth.admin.getUserById(targetId));
+    data={...profile,role:account.user?.app_metadata?.rboas_role||"trainee"};break;
+   }
    case "staff_update":{
     adminOnly();
     const id=uid(body.id);
