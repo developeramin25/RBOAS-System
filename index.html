@@ -76,7 +76,7 @@
  <form id="assignmentForm" class="auth-form"><div class="auth-symbol">✓</div><h2 id="assignmentTitle">Assign an assessment</h2>
  <p>Only published assessments can be assigned to an active trainee.</p>
  <label for="assignmentTrainee">Trainee</label><select id="assignmentTrainee" name="trainee_id" required></select>
- <label for="assignmentAssessment">Assessment</label><select id="assignmentAssessment" name="assessment_id" required></select>
+ <label for="assignmentAssessment">Assessment</label><select id="assignmentAssessment" name="assessment_id" required></select><label for="assignmentAvailable">Available from (optional)</label><input type="datetime-local" name="available_from" id="assignmentAvailable"/><label for="assignmentDue">Due date (optional)</label><input type="datetime-local" name="due_at" id="assignmentDue"/><p class="muted">Dates use your device’s timezone and are saved in UTC.</p>
  <div class="form-message" id="assignmentMessage" role="status"></div>
  <button class="primary full" type="submit">Assign assessment</button><button type="button" class="text-button full" data-close-dialog="assignmentDialog">Cancel</button></form>
 </dialog>
