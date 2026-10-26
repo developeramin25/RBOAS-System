@@ -71,7 +71,7 @@ Deno.serve(async req=>{
     let id:string;
     if(body.id){id=uid(body.id);ok(await supabase.from("question_bank").update({category,prompt,options,difficulty,active:false}).eq("id",id));}
     else {const inserted=ok(await supabase.from("question_bank").insert({category,prompt,options,difficulty,active:false,created_by:user.id}).select("id").single());id=inserted.id;}
-    ok(await supabase.schema("private").from("answer_keys").upsert({question_id:id,correct_option_index:correct,explanation:typeof body.explanation==="string"?body.explanation.slice(0,1500):null},{onConflict:"question_id"}));
+    ok(await supabase.rpc("rboas_upsert_answer_key",{p_question_id:id,p_correct_index:correct,p_explanation:typeof body.explanation==="string"?body.explanation.slice(0,1500):null}));
     await record(user.id,"save_draft_question","question_bank",id);
     data={id,status:"draft"};break;
    }
@@ -156,7 +156,7 @@ Deno.serve(async req=>{
     if(attempt.status==="submitted"){data={score_percent:attempt.score_percent,passed:attempt.passed,correct_count:attempt.correct_count};break;}
     const rows=ok(await supabase.from("attempt_questions").select("id,question_id,displayed_options").eq("attempt_id",attempt.id));
     const submitted=ok(await supabase.from("attempt_answers").select("attempt_question_id,selected_index").in("attempt_question_id",rows.map((x:any)=>x.id)));
-    const keys=ok(await supabase.schema("private").from("answer_keys").select("question_id,correct_option_index").in("question_id",rows.map((x:any)=>x.question_id)));
+    const keys=ok(await supabase.rpc("rboas_get_scoring_keys",{p_question_ids:rows.map((x:any)=>x.question_id)}));
     const questions=ok(await supabase.from("question_bank").select("id,options").in("id",rows.map((x:any)=>x.question_id)));
     const keyMap=new Map(keys.map((x:any)=>[x.question_id,x.correct_option_index]));
     const questionMap=new Map(questions.map((x:any)=>[x.id,x.options]));
