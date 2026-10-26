@@ -170,6 +170,17 @@ Deno.serve(async req=>{
     await record(user.id,"update_staff","user_profiles",id,{role:staffRole,active});
     data=result;break;
    }
+   case "question_get":{
+    adminOnly();
+    const id=uid(body.id);
+    const item=ok(await supabase.from("question_bank")
+      .select("id,category,prompt,options,difficulty,active,source_kind,source_number")
+      .eq("id",id).maybeSingle());
+    if(!item)bad("Question not found",404);
+    const answers=ok(await supabase.rpc("rboas_get_scoring_keys",{p_question_ids:[id]}));
+    data={...item,correct:answers[0]?.correct_option_index??null};
+    break;
+   }
    case "question_save":{
     adminOnly();
     const category=text(body.category,"category",80);
