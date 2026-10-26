@@ -54,19 +54,19 @@ function demo(){return !state.signedIn;}
 function role(){return demo()?"preview":state.role;}
 function me(){return state.profile&&state.profile.display_name||state.user&&state.user.email||"Guest reviewer";}
 function initials(name){return String(name||"T").split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();}
-function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["settings","Settings","settings"]];}
+function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["presentation","Project tour","cap"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["presentation","Project tour","cap"],["settings","Settings","settings"]];}
 function label(){return demo()?"Design preview":role()==="admin"?"Administrator":role()==="manager"?"Manager / HR":"Trainee";}
 function navButton(item){return '<button class="nav-button '+(state.page===item[0]?"active":"")+'" data-nav="'+item[0]+'">'+svg(item[2])+esc(item[1])+'</button>';}
-function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "report":return report();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
+function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "presentation":return presentation();case "report":return report();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
 function render(){
  const all=navItems();if(!all.some(x=>x[0]===state.page)&&state.page!=="practice"&&state.page!=="report"&&state.page!=="take")state.page="overview";
- const title=state.page==="report"?"Individual report":state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
+ const title=state.page==="presentation"?"Management tour":state.page==="report"?"Individual report":state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
  document.getElementById("app").innerHTML=
  '<div class="app-shell"><aside class="sidebar" id="sidebar"><a href="#" class="brand" data-nav="overview">'+
  '<div class="brand-icon">R</div><div><div class="brand-title">RBOAS<span style="color:#58a7f9">.</span></div><div class="brand-sub">ASSESSMENT SYSTEM</div></div></a>'+
  '<div class="side-label">WORKSPACE</div><nav class="nav">'+all.map(navButton).join("")+'</nav><div class="side-spacer"></div>'+
  '<div class="side-help"><div class="side-help-icon">'+svg("cap")+'</div><h4>Built for better onboarding</h4><p>Structured learning. Objective evaluations. Confident pharmacy billing teams.</p></div>'+
- '<div class="side-foot">REMOTE BILLING · TRAINING & DEVELOPMENT<br><span style="line-height:2.5">Phase 2 · Management-ready demonstration</span></div></aside>'+
+ '<div class="side-foot">REMOTE BILLING · TRAINING & DEVELOPMENT<br><span style="line-height:2.5">Phase 4 · Management demonstration</span></div></aside>'+
  '<main class="main"><header class="topbar"><div class="mobile-top"><button aria-label="Toggle menu" id="mobileMenu">'+svg("menu")+'</button>RBOAS</div>'+
  '<div class="breadcrumb">Workspace&nbsp; / &nbsp;<strong>'+esc(title)+'</strong></div><div class="top-actions">'+
  '<span class="mode-pill"><span class="dot"></span>'+esc(label())+'</span>'+
@@ -214,6 +214,37 @@ function report(){
  '<div class="divider"></div><h3 style="font-size:14px">Manager review</h3>'+
  '<p class="muted" style="margin-top:9px;line-height:1.8">Suggested discussion: Review categories with missed questions, verify practical billing skills with supervised exercises, and document the final onboarding recommendation separately.</p>'+
  '<p class="tagline">Confidential training record · No patient information included.</p></div></div>';
+}
+function presentation(){
+ const blocks=[
+  {n:"01",icon:"users",heading:"Set up the trainee",explain:"An authorized administrator invites the trainee, sets the store and manager, and assigns the five-day onboarding exam.",action:"Trainee directory",page:"trainees"},
+  {n:"02",icon:"questions",heading:"Approve the training knowledge",explain:"A 50-question bank covers ERX, refills, insurance rejections, LTC, and coupon/follow-up. Draft questions require SOP approval.",action:"Review question bank",page:"questions"},
+  {n:"03",icon:"exam",heading:"Evaluate with a randomized quiz",explain:"The system draws 25 questions—five per topic—with randomized choices and a 30-minute timer. Real attempts are securely graded.",action:"Try the exam preview",page:"practice"},
+  {n:"04",icon:"results",heading:"Measure learning and follow up",explain:"Managers can view individual scores and category breakdowns, print reports, and identify topics needing supervised practice.",action:"Explore reports",page:"results"}
+ ];
+ return header("A clearer way to assess onboarding readiness.","A guided walkthrough of the RBOAS evaluation workflow—designed for managers and HR.")+
+ '<div class="hero"><div class="hero-content"><div class="eyebrow">'+svg("cap")+' MANAGEMENT PRESENTATION</div>'+
+ '<h2>From five days of training to measurable readiness.</h2>'+
+ '<p>RBOAS brings trainee administration, randomized competency evaluations and evidence-based performance reporting into one connected workspace.</p>'+
+ '<div class="button-row"><button class="primary" data-nav="practice">Launch the 25-question demo '+svg("arrow")+'</button><button class="outline" data-nav="results">View example reports</button></div></div>'+
+ '<div class="hero-visual"><div class="orb"><div class="orb-inner">'+svg("cap")+'</div></div></div></div>'+
+ '<section class="mini-cards"><div class="mini-card"><strong>5</strong><p>Training categories</p><small>Balanced coverage</small></div>'+
+ '<div class="mini-card"><strong>50</strong><p>Draft questions</p><small>10 in each topic</small></div>'+
+ '<div class="mini-card"><strong>25</strong><p>Exam questions</p><small>Randomized each attempt</small></div>'+
+ '<div class="mini-card"><strong>30</strong><p>Minutes</p><small>Suggested exam duration</small></div>'+
+ '<div class="mini-card"><strong>80%</strong><p>Passing mark</p><small>Subject to management approval</small></div></section>'+
+ '<div class="tour-grid">'+blocks.map(x=>'<article class="card tour-step"><div class="tour-top"><span class="tour-number">'+x.n+'</span><span class="metric-icon">'+svg(x.icon)+'</span></div>'+
+ '<h3>'+esc(x.heading)+'</h3><p>'+esc(x.explain)+'</p><button class="outline" data-nav="'+x.page+'">'+esc(x.action)+' '+svg("arrow")+'</button></article>').join("")+'</div>'+
+ '<div class="card spaced"><div class="section-heading"><h3>Current project readiness</h3><span class="status blue">Demonstration build</span></div>'+
+ '<div class="tour-grid">'+[
+  {name:"Database and authentication",status:"Configured",good:true},
+  {name:"50 draft questions",status:"Saved",good:true},
+  {name:"25-question demonstration",status:"Interactive",good:true},
+  {name:"Secure scoring function",status:"Deployed",good:true},
+  {name:"Live staff onboarding",status:"Admin activation needed",good:false},
+  {name:"Official question approval",status:"Awaiting SOP review",good:false}
+ ].map(v=>'<div class="tour-state"><span class="status '+(v.good?"green":"amber")+'">'+esc(v.status)+'</span><strong>'+esc(v.name)+'</strong></div>').join("")+'</div>'+
+ '<div class="notice warning" style="margin-top:22px;margin-bottom:0"><strong>For demonstration:</strong> Sample trainee records and presentation results are illustrative. Real assessments must be authorized, approved, and completed by authenticated staff.</div></div>';
 }
 function settings(){
  const config=state.assessments[0]||{id:"demo",duration_minutes:30,passing_percent:80,allowed_attempts:1};
