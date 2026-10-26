@@ -21,7 +21,7 @@ const ICONS={
 };
 const svg = (name) => '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||ICONS.overview)+'</svg>';
 const esc = (s) => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const state={page:"overview", client:null, signedIn:false, role:"preview", profile:null, user:null,
+const state={page:"overview", client:null, signedIn:false, role:"preview", profile:null, user:null, liveExam:null,liveQuestions:[],liveAnswers:{},liveIndex:0,liveSubmitting:false,
  trainees:[],questions:[],assessments:[],attempts:[],assignments:[],filter:"",question:0,choices:{},quizFinished:false,sessionLoading:true};
 const SAMPLE_TRAINEES=[
  {display_name:"Trainee 001",employee_code:"TR-001",store_code:"475",active:true,created_at:"2026-10-20"},
@@ -57,10 +57,10 @@ function initials(name){return String(name||"T").split(/\s+/).slice(0,2).map(x=>
 function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["settings","Settings","settings"]];}
 function label(){return demo()?"Design preview":role()==="admin"?"Administrator":role()==="manager"?"Manager / HR":"Trainee";}
 function navButton(item){return '<button class="nav-button '+(state.page===item[0]?"active":"")+'" data-nav="'+item[0]+'">'+svg(item[2])+esc(item[1])+'</button>';}
-function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "settings":return settings();case "practice":return practice();default:return overview();}}
+function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
 function render(){
  const all=navItems();if(!all.some(x=>x[0]===state.page)&&state.page!=="practice")state.page="overview";
- const title=state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
+ const title=state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
  document.getElementById("app").innerHTML=
  '<div class="app-shell"><aside class="sidebar" id="sidebar"><a href="#" class="brand" data-nav="overview">'+
  '<div class="brand-icon">R</div><div><div class="brand-title">RBOAS<span style="color:#58a7f9">.</span></div><div class="brand-sub">ASSESSMENT SYSTEM</div></div></a>'+
@@ -107,7 +107,7 @@ function overview(){
 function activity(title,sub,icon){return '<div class="activity"><span class="activity-mark '+(icon==="lock"||icon==="clock"?"blue":"")+'">'+svg(icon)+'</span><div><h4>'+esc(title)+'</h4><p>'+esc(sub)+'</p></div></div>';}
 function trainees(){
  const rows=demo()?SAMPLE_TRAINEES:state.trainees;
- const button=role()==="admin"?'<button class="subtle-btn" disabled title="Secure administrator invitations will be added in the next phase">Invite trainee · Next phase</button>':"";
+ const button=role()==="admin"?'<button class="primary" data-open-dialog="inviteDialog">'+svg("users")+' Invite trainee</button>':"";
  return header("Trainee directory","Monitor assigned trainees, store locations and onboarding status.",button)+
  '<div class="toolbar"><label class="search-box">'+svg("search")+'<input type="search" id="traineeFilter" placeholder="Search by name, store or ID" aria-label="Search trainees"></label>'+
  '<span class="status blue">'+rows.length+' '+(demo()?"sample records":"authorized records")+'</span></div>'+
@@ -121,20 +121,33 @@ function trainees(){
 function empty(title,description){return '<div class="empty"><span class="empty-icon">'+svg("users")+'</span><h3>'+esc(title)+'</h3><p>'+esc(description)+'</p></div>';}
 function questions(){
  const rows=demo()?DEMO_BANK:state.questions;
- return header("Question bank","Organize the foundational billing knowledge required after five days of training.",'<button class="subtle-btn" disabled title="Secure question authoring and answer keys are the next milestone">Add question · Next phase</button>')+
+ return header("Question bank","Review draft questions and approve only those verified against current policies.",role()==="admin"?'<button class="primary" data-open-dialog="questionDialog">'+svg("questions")+' Add question</button>':'')+
  '<section class="mini-cards">'+CATEGORIES.map((c,i)=>'<div class="mini-card"><span class="badge-icon">'+svg("questions")+'</span><strong>'+ (demo()?DEMO_BANK.filter(x=>x.category===c).length:rows.filter(x=>x.category===c).length)+'</strong><p>'+esc(c)+'</p><small>'+(demo()?"Planned per category":"Approved questions in bank")+'</small></div>').join("")+'</section>'+
  '<div class="card"><div class="section-heading"><h3>Question library</h3><span class="status blue">'+(demo()?"50 draft questions · management review required":"Database records · draft questions inactive")+'</span></div>'+
- (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Question</th><th>Category</th><th>Difficulty</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>'<tr><td style="max-width:480px;color:#344861;font-weight:700">'+esc(x.prompt)+'</td><td>'+esc(x.category)+'</td><td>'+esc(x.difficulty||"basic")+'</td><td><span class="status green">'+(demo()?"Draft":x.active?"Active":"Draft")+'</span></td></tr>').join("")+'</tbody></table></div>':
+ (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Question</th><th>Category</th><th>Difficulty</th><th>Status</th><th>Review</th></tr></thead><tbody>'+rows.map(x=>'<tr><td style="max-width:480px;color:#344861;font-weight:700">'+esc(x.prompt)+'</td><td>'+esc(x.category)+'</td><td>'+esc(x.difficulty||"basic")+'</td><td><span class="status green">'+(demo()?"Draft":x.active?"Active":"Draft")+'</span></td><td>'+(role()==="admin"&&!demo()?'<button class="outline" data-approve-q="'+esc(x.id)+'" data-next-status="'+(!x.active)+'">'+(x.active?"Deactivate":"Approve")+'</button>':'<span class="pale">—</span>')+'</td></tr>').join("")+'</tbody></table></div>':
  empty("The question bank is empty","Administrators will be able to add 50 reviewed questions with securely stored answer keys."))+'</div>';
 }
 function assessments(){
- const rows=demo()?[{id:"demo",title:"Five-Day Remote Billing Onboarding Assessment",description:"Core onboarding assessment",duration_minutes:30,question_count:25,passing_percent:80,published:false}]:state.assessments;
- return header(role()==="trainee"?"My assessments":"Assessments","Configure consistent evaluations of core billing competencies.")+
- '<div class="notice"><strong>Exam specifications:</strong> A 50-question bank, 25 randomly assigned per attempt, five categories, 30-minute timer and an 80% recommended passing threshold. The interactive 25-question preview is ready; official server-side grading requires activation after SOP review.</div>'+
- (rows.length?rows.map(x=>'<div class="card" style="margin-bottom:16px"><div class="section-heading"><div><h3 style="font-size:16px;margin-bottom:8px">'+esc(x.title)+'</h3><p class="muted">'+esc(x.description||"Structured onboarding evaluation")+'</p></div><span class="status '+(x.published?"green":"amber")+'">'+(x.published?"Published":"Draft")+'</span></div>'+
- '<div class="quiz-meta"><span>'+svg("questions")+' '+esc(x.question_count)+' questions</span><span>'+svg("clock")+' '+esc(x.duration_minutes)+' minutes</span><span>'+svg("shield")+' Pass: '+esc(x.passing_percent)+'%</span></div>'+
- '<button class="outline" data-nav="practice">Start randomized 25-question demo '+svg("arrow")+'</button></div>').join(""):
- '<div class="card">'+empty("No accessible assessments","Your assigned assessments will appear here after an administrator publishes and assigns them.")+'</div>');
+ const isPreview=demo();
+ const available=isPreview?[{id:"demo",title:"Five-Day Remote Billing Onboarding Assessment",description:"Five-category onboarding review",duration_minutes:30,question_count:25,passing_percent:80,published:false}]:state.assessments;
+ const assigned=isPreview?[]:state.assignments;
+ const canAdmin=role()==="admin";
+ const buttons=canAdmin?'<button class="primary" data-open-dialog="assignmentDialog">'+svg("exam")+' Assign exam</button>':"";
+ return header(role()==="trainee"?"My assessments":"Assessments","Structured five-day onboarding evaluation with secure server-side scoring.",buttons)+
+ '<div class="notice"><strong>'+ (isPreview?"Management demonstration":"Official assessment management")+':</strong> 25 questions randomly selected from 50, balanced across five categories, a 30-minute limit, 80% suggested pass mark, and one authorized attempt.</div>'+
+ (available.length?available.map(x=>{
+   const related=assigned.filter(a=>a.assessment_id===x.id);
+   const trainee=role()==="trainee";
+   if(trainee&&!related.length)return "";
+   const action=isPreview?'<button class="primary" data-nav="practice">Try the randomized assessment demo '+svg("arrow")+'</button>':
+    trainee?related.map(a=>'<button class="primary" data-start-assignment="'+esc(a.id)+'">'+(a.status==="completed"?"View previous result":"Start / Resume assessment")+'</button>').join(" "):
+    canAdmin?'<button class="outline" data-publish-assessment="'+esc(x.id)+'" data-publish-status="'+(!x.published)+'">'+(x.published?"Unpublish":"Publish after review")+'</button>':"";
+   return '<div class="card" style="margin-bottom:16px"><div class="section-heading"><div><h3 style="font-size:16px;margin-bottom:8px">'+esc(x.title)+'</h3><p class="muted">'+esc(x.description||"Billing competency assessment")+'</p></div><span class="status '+(x.published?"green":"amber")+'">'+(x.published?"Published":"Draft")+'</span></div>'+
+   '<div class="quiz-meta"><span>'+svg("questions")+' '+x.question_count+' questions</span><span>'+svg("clock")+' '+x.duration_minutes+' minutes</span><span>'+svg("shield")+' Pass '+x.passing_percent+'%</span></div>'+
+   '<div class="button-row">'+action+'</div></div>';
+ }).join(""):'')+
+ (isPreview||role()!=="trainee"?"":assigned.length?"":'<div class="card">'+empty("No assigned assessments","An administrator must assign you a published exam before you can take it.")+'</div>')+
+ (isPreview?'':'<div class="spaced"><button class="outline" data-nav="practice">Open the presentation-only demo</button></div>');
 }
 function results(){
  const rows=demo()?[{id:"DEMO-001",name:"Trainee 001",score_percent:92,passed:true},{id:"DEMO-002",name:"Trainee 002",score_percent:84,passed:true},{id:"DEMO-003",name:"Trainee 003",score_percent:68,passed:false}]:
@@ -193,6 +206,64 @@ function practice(){
  '<div class="divider"></div><p class="muted" style="margin-bottom:12px">Jump to any question:</p>'+numbering+
  '</div></div>';
 }
+function liveExamUi(){
+ const exam=state.liveExam;
+ if(!exam)return header("Official assessment","Start an assigned exam from My assessments.")+'<button class="outline" data-nav="assessments">Back to assessments</button>';
+ if(exam.status==="submitted"||state.liveFinished){
+  const score=Number(exam.score_percent||0);
+  return '<div class="quiz-container">'+header("Assessment submitted","Your result has been saved securely.")+
+  '<div class="card" style="text-align:center;padding:40px"><h2 style="font-size:30px">'+score+'%</h2><span class="status '+(exam.passed?"green":"amber")+'">'+(exam.passed?"Passed":"Training review recommended")+'</span>'+
+  '<p class="muted" style="margin:20px 0">Your assessment outcome is recorded. Contact your trainer or manager about feedback and next steps.</p><button class="primary" data-nav="results">View results</button></div></div>';
+ }
+ const q=state.liveQuestions[state.liveIndex];
+ if(!q)return header("Assessment unavailable","This exam did not provide any questions.");
+ const answered=Object.keys(state.liveAnswers).length;
+ const remain=Math.max(0,Math.ceil((Date.parse(exam.expires_at)-Date.now())/1000));
+ const timer=String(Math.floor(remain/60)).padStart(2,"0")+":"+String(remain%60).padStart(2,"0");
+ return '<div class="quiz-container">'+header("Official Billing Assessment","Your answers are saved to your secure assessment record.")+
+ '<div class="notice">Submit before the timer expires. The exam can be resumed while still open. Your answers are saved after each selection.</div>'+
+ '<div class="quiz-meta"><span>Question '+(state.liveIndex+1)+' / '+state.liveQuestions.length+'</span><span>'+answered+' answered</span><span>'+esc(q.category)+'</span><span style="color:#2573d7;font-weight:800" id="official-timer">'+timer+'</span></div>'+
+ '<div class="quiz-progress"><div style="width:'+100*answered/state.liveQuestions.length+'%"></div></div>'+
+ '<div class="card question-card"><p class="small-caps">SECURE EXAM · CHOOSE ONE ANSWER</p><h2>'+esc(q.prompt)+'</h2>'+
+ '<div class="answers">'+q.options.map((v,i)=>'<button class="option '+(state.liveAnswers[q.id]===i?"chosen":"")+'" data-live-answer="'+i+'" '+(state.liveSubmitting?"disabled":"")+'><span class="option-index">'+String.fromCharCode(65+i)+'</span>'+esc(v)+'</button>').join("")+'</div>'+
+ '<div class="quiz-footer"><button class="outline" data-live-prev '+(state.liveIndex===0?"disabled":"")+'>Previous</button><button class="primary" data-live-next>'+ (state.liveIndex===state.liveQuestions.length-1?"Submit assessment":"Next question")+' '+svg("arrow")+'</button></div>'+
+ '<div class="divider"></div><p class="muted" style="margin-bottom:12px">Question navigation</p><div class="question-jump">'+state.liveQuestions.map((v,i)=>'<button class="jump '+(i===state.liveIndex?"current":state.liveAnswers[v.id]!==undefined?"answered":"")+'" data-live-jump="'+i+'">'+(i+1)+'</button>').join("")+'</div></div></div>';
+}
+async function api(action,payload={}){
+ if(!state.client)throw new Error("Authentication client is not available");
+ const response=await state.client.functions.invoke("rboas-api",{body:{action,...payload}});
+ if(response.error) {
+   const server=response.error.context;
+   let detail=response.error.message;
+   if(server&&typeof server.json==="function")try{const parsed=await server.json();detail=parsed.error||detail}catch{}
+   throw new Error(detail);
+ }
+ if(response.data&&response.data.error)throw new Error(response.data.error);
+ return response.data&&response.data.data;
+}
+async function reload(){await loadData();render();}
+async function beginOfficial(assignment_id){
+ const started=await api("exam_start",{assignment_id});
+ const received=await api("exam_get",{attempt_id:started.attempt_id});
+ state.liveExam=received.attempt;
+ state.liveQuestions=received.questions||[];
+ state.liveAnswers=received.answers||{};
+ state.liveIndex=0;state.liveFinished=false;state.page="take";render();
+}
+async function submitOfficial(){
+ if(!window.confirm("Submit your official assessment? You cannot change answers afterward."))return;
+ state.liveSubmitting=true;
+ try{
+  const result=await api("exam_submit",{attempt_id:state.liveExam.id});
+  state.liveExam={...state.liveExam,...result,status:"submitted"};
+  state.liveFinished=true;await loadData();render();toast("Official assessment submitted");
+ }catch(e){toast(e.message||"Submission failed")}finally{state.liveSubmitting=false;}
+}
+function initAssignmentForm(){
+ const t=document.getElementById("assignmentTrainee"),a=document.getElementById("assignmentAssessment");
+ t.innerHTML=state.trainees.filter(x=>x.active).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.display_name+' · Store '+(x.store_code||"—"))+'</option>').join("");
+ a.innerHTML=state.assessments.filter(x=>x.published).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>').join("");
+}
 function toast(message){const t=document.createElement("div");t.className="toast";t.textContent=message;document.body.appendChild(t);setTimeout(()=>t.remove(),3300);}
 async function initializeAuth(){
  try{
@@ -209,7 +280,7 @@ async function syncUser(){
  const user=res.data.user;state.user=user;
  state.role=user.app_metadata&&user.app_metadata.rboas_role||"trainee";
  const p=await state.client.from("user_profiles").select("id,display_name,email,store_code,employee_code,active").eq("id",user.id).maybeSingle();
- state.profile=p.data||{display_name:user.email,email:user.email,active:true};
+ if(p.error||!p.data){await state.client.auth.signOut();state.signedIn=false;throw Error("Account not activated. Contact an RBOAS administrator.");}state.profile=p.data;
  if(state.profile.active===false){await state.client.auth.signOut();state.signedIn=false;throw Error("Account disabled. Contact your administrator.");}
  state.signedIn=true;await loadData();
 }
@@ -230,6 +301,24 @@ async function loadData(){
  state.assignments=results[4].data||[];
 }
 document.addEventListener("click",async function(e){
+ const close=e.target.closest("[data-close-dialog]");
+ if(close){document.getElementById(close.dataset.closeDialog)?.close();return;}
+ const open=e.target.closest("[data-open-dialog]");
+ if(open){if(!state.signedIn||role()!=="admin"){toast("Administrator access required");return;}if(open.dataset.openDialog==="assignmentDialog")initAssignmentForm();document.getElementById(open.dataset.openDialog)?.showModal();return;}
+ const approve=e.target.closest("[data-approve-q]");
+ if(approve){if(!window.confirm("Only approve this question if it matches the current approved SOP. Continue?"))return;
+  try{await api("question_approve",{id:approve.dataset.approveQ,active:approve.dataset.nextStatus==="true"});await reload();toast("Question status updated");}catch(err){toast(err.message)}return;}
+ const publish=e.target.closest("[data-publish-assessment]");
+ if(publish){if(!window.confirm("Publish only after all assessment questions have been reviewed and approved. Continue?"))return;
+  try{await api("assessment_publish",{id:publish.dataset.publishAssessment,published:publish.dataset.publishStatus==="true"});await reload();toast("Assessment status updated");}catch(err){toast(err.message)}return;}
+ const begin=e.target.closest("[data-start-assignment]");
+ if(begin){try{await beginOfficial(begin.dataset.startAssignment)}catch(err){toast(err.message)}return;}
+ const pick=e.target.closest("[data-live-answer]");
+ if(pick){const q=state.liveQuestions[state.liveIndex];state.liveSubmitting=true;
+  try{await api("exam_answer",{attempt_id:state.liveExam.id,question_id:q.id,selected_index:Number(pick.dataset.liveAnswer)});state.liveAnswers[q.id]=Number(pick.dataset.liveAnswer);render();}catch(err){toast(err.message)}finally{state.liveSubmitting=false;}return;}
+ const jumpLive=e.target.closest("[data-live-jump]");if(jumpLive){state.liveIndex=Number(jumpLive.dataset.liveJump);render();return;}
+ if(e.target.closest("[data-live-prev]")){state.liveIndex=Math.max(0,state.liveIndex-1);render();return;}
+ if(e.target.closest("[data-live-next]")){if(state.liveIndex===state.liveQuestions.length-1)await submitOfficial();else{state.liveIndex++;render();}return;}
  const menu=e.target.closest("#mobileMenu");if(menu){document.getElementById("sidebar")?.classList.toggle("open");return;}
  const link=e.target.closest("[data-nav]");if(link){e.preventDefault();if(link.dataset.nav==="practice"&&!state.practiceStarted)preparePractice();state.page=link.dataset.nav;document.getElementById("sidebar")?.classList.remove("open");window.scrollTo({top:0,behavior:"smooth"});render();return;}
  const ch=e.target.closest("[data-choice]");if(ch){state.choices[state.question]=Number(ch.dataset.choice);render();return;}const jump=e.target.closest("[data-jump]");if(jump){state.question=Number(jump.dataset.jump);render();return;}
@@ -260,4 +349,27 @@ document.getElementById("loginForm").addEventListener("submit",async function(e)
  finally{button.disabled=false;button.textContent="Sign in securely";}
 });
 setInterval(()=>{if(state.page==="practice"&&state.practiceStarted&&!state.quizFinished){const timer=document.getElementById("demo-timer");if(timer)timer.textContent=remainingTime();if(Date.now()>=state.practiceEndsAt){state.quizFinished=true;render();toast("Practice time completed");}}},1000);
+
+async function handleAdminForm(formId,messageId,build,action,dialogId){
+ const form=document.getElementById(formId),msg=document.getElementById(messageId);
+ form.addEventListener("submit",async e=>{
+  e.preventDefault();msg.textContent="";
+  const button=form.querySelector('[type="submit"]');button.disabled=true;
+  try{const data=build(new FormData(form));await api(action,data);form.reset();document.getElementById(dialogId).close();await reload();toast(action==="invite"?"Invitation sent":"Changes saved");}
+  catch(err){msg.textContent=err.message||"Operation failed";}finally{button.disabled=false;}
+ });
+}
+handleAdminForm("inviteForm","inviteMessage",f=>({
+ display_name:f.get("display_name"),email:f.get("email"),store_code:f.get("store_code"),employee_code:f.get("employee_code"),role:f.get("role")
+}),"invite","inviteDialog");
+handleAdminForm("questionForm","questionMessage",f=>({
+ category:f.get("category"),prompt:f.get("prompt"),
+ options:[f.get("option0"),f.get("option1"),f.get("option2"),f.get("option3")],
+ correct:Number(f.get("correct")),difficulty:f.get("difficulty")
+}),"question_save","questionDialog");
+handleAdminForm("assignmentForm","assignmentMessage",f=>({
+ trainee_id:f.get("trainee_id"),assessment_id:f.get("assessment_id")
+}),"assignment_create","assignmentDialog");
+
+setInterval(()=>{if(state.page==="take"&&state.liveExam&&state.liveExam.status==="in_progress"){const el=document.getElementById("official-timer");if(el){const n=Math.max(0,Math.ceil((Date.parse(state.liveExam.expires_at)-Date.now())/1000));el.textContent=String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");if(n===0)toast("Time expired. Submit your recorded answers.");}}},1000);
 render();initializeAuth();
