@@ -62,10 +62,9 @@
  </form>
 </dialog>
 <dialog id="questionDialog" class="auth-dialog" aria-labelledby="questionTitle">
- <form id="questionForm" class="auth-form"><div class="auth-symbol">?</div><h2 id="questionTitle">Create a draft question</h2>
+ <form id="questionForm" class="auth-form"><input type="hidden" name="id" id="questionId"/><div class="auth-symbol">?</div><h2 id="questionTitle">Create a draft question</h2>
  <p>Draft questions stay inactive until an administrator verifies them against the approved SOP.</p>
- <label for="questionCategory">Category</label><select id="questionCategory" name="category" required>
- <option>ERX Processing</option><option>Refill Processing</option><option>Insurance &amp; Rejections</option><option>LTC Billing</option><option>Coupons &amp; Follow-Up</option></select>
+ <label for="questionCategory">Category</label><select id="questionCategory" name="category" required><option>Module 1: Refill Processing</option><option>Module 2: New Prescription Processing</option><option>Module 3: Insurance Billing Basics</option><option>Module 4: SIG Codes and Documentation</option><option>Module 5: Common Rejections and Troubleshooting</option><option>Module 6: Follow-Up Tags and Queue Management</option><option>Practical Application: Medication-Specific Calculations</option><option>LTC Billing</option><option>Coupons &amp; Follow-Up</option></select>
  <label for="questionPrompt">Question</label><textarea name="prompt" id="questionPrompt" rows="3" maxlength="2000" required placeholder="Write the assessment question"></textarea>
  <label>Answer choices</label><input name="option0" required placeholder="Option A"/><input name="option1" required placeholder="Option B"/><input name="option2" required placeholder="Option C"/><input name="option3" required placeholder="Option D"/>
  <label for="questionCorrect">Correct answer</label><select id="questionCorrect" name="correct"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
