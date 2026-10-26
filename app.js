@@ -111,11 +111,12 @@ function trainees(){
  return header("Trainee directory","Monitor assigned trainees, store locations and onboarding status.",button)+
  '<div class="toolbar"><label class="search-box">'+svg("search")+'<input type="search" id="traineeFilter" placeholder="Search by name, store or ID" aria-label="Search trainees"></label>'+
  '<span class="status blue">'+rows.length+' '+(demo()?"sample records":"authorized records")+'</span></div>'+
- '<div class="card full-table">'+(rows.length?'<table class="data-table"><thead><tr><th>Trainee</th><th>Employee ID</th><th>Store</th><th>Account</th><th>Onboarding</th></tr></thead><tbody>'+rows.map(x=>
+ '<div class="card full-table">'+(rows.length?'<table class="data-table"><thead><tr><th>Trainee</th><th>Employee ID</th><th>Store</th><th>Account</th><th>Onboarding</th><th>Actions</th></tr></thead><tbody>'+rows.map(x=>
  '<tr data-search="'+esc((x.display_name+" "+(x.store_code||"")+" "+(x.employee_code||"")).toLowerCase())+'">'+
  '<td><div class="person-cell"><span class="initials">'+esc(initials(x.display_name))+'</span>'+esc(x.display_name)+'</div></td>'+
  '<td>'+esc(x.employee_code||"—")+'</td><td>'+esc(x.store_code||"—")+'</td><td><span class="status '+(x.active?"green":"gray")+'">'+(x.active?"Active":"Inactive")+'</span></td>'+
- '<td><span class="status blue">'+(demo()?"Sample trainee":"Registered")+'</span></td></tr>').join("")+'</tbody></table>':
+ '<td><span class="status blue">'+(demo()?"Sample trainee":"Registered")+'</span></td>'+
+ '<td>'+(role()==="admin"&&!demo()?'<button class="outline" data-edit-employee="'+esc(x.id)+'">Edit</button>':'<span class="pale">—</span>')+'</td></tr>').join("")+'</tbody></table>':
  empty("No trainee profiles yet","Once administrator invitations are configured, new trainee accounts will appear here."))+'</div>';
 }
 function empty(title,description){return '<div class="empty"><span class="empty-icon">'+svg("users")+'</span><h3>'+esc(title)+'</h3><p>'+esc(description)+'</p></div>';}
@@ -398,6 +399,24 @@ async function loadData(){
 document.addEventListener("click",async function(e){
  const detail=e.target.closest("[data-report-id]");
  if(detail){try{await openReport(detail.dataset.reportId)}catch(err){toast(err.message||"Report unavailable")}return;}
+ const edit=e.target.closest("[data-edit-employee]");
+ if(edit){
+  try{
+   const staff=await api("staff_get",{id:edit.dataset.editEmployee});
+   const form=document.getElementById("staffForm");
+   form.elements.namedItem("id").value=staff.id;
+   form.elements.namedItem("display_name").value=staff.display_name;
+   form.elements.namedItem("employee_code").value=staff.employee_code||"";
+   form.elements.namedItem("store_code").value=staff.store_code||"";
+   form.elements.namedItem("role").value=staff.role==="manager"?"manager":"trainee";
+   form.elements.namedItem("active").checked=Boolean(staff.active);
+   const list=document.getElementById("staffManager");
+   list.innerHTML='<option value="">Unassigned</option>'+state.trainees.filter(x=>x.active&&x.id!==staff.id).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.display_name)+'</option>').join("");
+   list.value=staff.manager_id||"";
+   document.getElementById("staffDialog").showModal();
+  }catch(err){toast(err.message||"Could not load staff record");}
+  return;
+ }
  const close=e.target.closest("[data-close-dialog]");
  if(close){document.getElementById(close.dataset.closeDialog)?.close();return;}
  const open=e.target.closest("[data-open-dialog]");
@@ -482,6 +501,11 @@ handleAdminForm("questionForm","questionMessage",f=>({
  options:[f.get("option0"),f.get("option1"),f.get("option2"),f.get("option3")],
  correct:Number(f.get("correct")),difficulty:f.get("difficulty")
 }),"question_save","questionDialog");
+handleAdminForm("staffForm","staffMessage",f=>({
+ id:f.get("id"),display_name:f.get("display_name"),employee_code:f.get("employee_code"),
+ store_code:f.get("store_code"),manager_id:f.get("manager_id"),
+ active:document.getElementById("staffActive").checked,role:f.get("role")
+}),"staff_update","staffDialog");
 handleAdminForm("assignmentForm","assignmentMessage",f=>({
  trainee_id:f.get("trainee_id"),assessment_id:f.get("assessment_id")
 }),"assignment_create","assignmentDialog");
