@@ -150,10 +150,11 @@ function assessments(){
  (isPreview||role()!=="trainee"?"":assigned.length?"":'<div class="card">'+empty("No assigned assessments","An administrator must assign you a published exam before you can take it.")+'</div>')+
  (isPreview?'':'<div class="spaced"><button class="outline" data-nav="practice">Open the presentation-only demo</button></div>');
 }
-function sampleCategoryBreakdown(){
- return [{category:"ERX Processing",correct:5,total:5},{category:"Refill Processing",correct:4,total:5},
- {category:"Insurance & Rejections",correct:3,total:5},{category:"LTC Billing",correct:5,total:5},
- {category:"Coupons & Follow-Up",correct:3,total:5}];
+function sampleCategoryBreakdown(percent){
+ const totalCorrect=Math.round(Number(percent||0)*25/100);
+ const counts=[0,0,0,0,0];
+ for(let i=0;i<totalCorrect;i++)counts[i%5]++;
+ return CATEGORIES.map((category,i)=>({category,correct:counts[i],total:5}));
 }
 function currentResults(){
  const isDemo=demo();
@@ -373,7 +374,7 @@ async function openReport(id){
    state.reportDetail={
     trainee:{display_name:row.name,store_code:row.store_code,employee_code:id},
     attempt:{score_percent:row.score_percent,passed:row.passed,correct_count:Math.round(row.score_percent*.25),
-      answered:25,total:25,submitted_at:row.submitted_at,category_breakdown:sampleCategoryBreakdown()}
+      answered:25,total:25,submitted_at:row.submitted_at,category_breakdown:sampleCategoryBreakdown(row.score_percent)}
    };
  }else{
    state.reportDetail=await api("report_attempt",{attempt_id:id});
