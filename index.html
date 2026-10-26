@@ -28,6 +28,19 @@
     </form>
   </dialog>
 
+<dialog id="staffDialog" class="auth-dialog" aria-labelledby="staffTitle">
+<form id="staffForm" class="auth-form"><div class="auth-symbol">✎</div><h2 id="staffTitle">Manage employee</h2>
+<p>Administrators can update store assignments, manager ownership, roles, and account access. All changes are audited.</p>
+<input type="hidden" id="staffId" name="id"/>
+<label for="staffName">Full name</label><input required name="display_name" id="staffName" maxlength="120"/>
+<label for="staffStore">Store</label><input name="store_code" id="staffStore" maxlength="30"/>
+<label for="staffCode">Employee ID</label><input name="employee_code" id="staffCode" maxlength="30"/>
+<label for="staffRole">Role</label><select name="role" id="staffRole"><option value="trainee">Trainee</option><option value="manager">Manager / HR</option></select>
+<label for="staffManager">Assigned manager</label><select name="manager_id" id="staffManager"><option value="">Unassigned</option></select>
+<label class="toggle-row"><input type="checkbox" name="active" id="staffActive" checked/> Account active</label>
+<div class="form-message" id="staffMessage" role="status"></div>
+<button class="primary full" type="submit">Save employee</button><button type="button" class="text-button full" data-close-dialog="staffDialog">Cancel</button>
+</form></dialog>
 <dialog id="inviteDialog" class="auth-dialog" aria-labelledby="inviteTitle">
  <form id="inviteForm" class="auth-form"><div class="auth-symbol">+</div><h2 id="inviteTitle">Invite a trainee</h2>
  <p>The system sends an invitation to the provided address. New trainees choose their own passwords.</p>
