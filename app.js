@@ -236,7 +236,8 @@ function settings(){
  setRow("Scoring","Server-side submission and protected answer keys")+
  setRow("Reports","Role-limited score and category summaries")+
  setRow("Readiness","Presentation demo ready · Official onboarding not approved yet")+
- '</div></div>'+form+(demo()?'<div class="spaced"><button class="primary" data-action="login">'+svg("lock")+' Staff sign-in</button></div>':'');
+ '</div></div>'+form+
+ (!demo()?'<div class="spaced"><button class="outline" data-open-password>'+svg("lock")+' Set or change password</button></div>':'<div class="spaced"><button class="primary" data-action="login">'+svg("lock")+' Staff sign-in</button></div>');
 }
 function setRow(k,v){return '<div class="settings-row"><b>'+esc(k)+'</b><span>'+esc(v)+'</span></div>';}
 function practice(){
@@ -399,6 +400,8 @@ async function loadData(){
 document.addEventListener("click",async function(e){
  const detail=e.target.closest("[data-report-id]");
  if(detail){try{await openReport(detail.dataset.reportId)}catch(err){toast(err.message||"Report unavailable")}return;}
+ const passwordButton=e.target.closest("[data-open-password]");
+ if(passwordButton){if(!state.signedIn){toast("Sign in to change your password");return;}document.getElementById("passwordDialog").showModal();return;}
  const edit=e.target.closest("[data-edit-employee]");
  if(edit){
   try{
@@ -493,6 +496,23 @@ document.addEventListener("submit",async e=>{
  }catch(err){toast(err.message||"Unable to save settings");}
  finally{button.disabled=false;}
 });
+document.getElementById("passwordForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const form=e.target,message=document.getElementById("passwordMessage");
+ message.textContent="";
+ const pass=form.elements.namedItem("password").value,confirm=form.elements.namedItem("confirm").value;
+ if(pass.length<12){message.textContent="Use at least 12 characters.";return;}
+ if(pass!==confirm){message.textContent="Passwords do not match.";return;}
+ const submit=form.querySelector('[type="submit"]');submit.disabled=true;
+ try{
+  if(!state.client||!state.signedIn)throw new Error("Sign in before changing your password.");
+  const r=await state.client.auth.updateUser({password:pass});
+  if(r.error)throw r.error;
+  form.reset();document.getElementById("passwordDialog").close();
+  toast("Password updated securely");
+ }catch(err){message.textContent=err.message||"Unable to set password.";}finally{submit.disabled=false;}
+});
+
 handleAdminForm("inviteForm","inviteMessage",f=>({
  display_name:f.get("display_name"),email:f.get("email"),store_code:f.get("store_code"),employee_code:f.get("employee_code"),role:f.get("role")
 }),"invite","inviteDialog");
