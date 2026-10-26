@@ -1,0 +1,5 @@
+ALTER TABLE public.question_bank DROP CONSTRAINT question_bank_category_check;
+ALTER TABLE public.question_bank ADD CONSTRAINT question_bank_category_check CHECK (category IN ('ERX Processing','Refill Processing','Insurance & Rejections','LTC Billing','Coupons & Follow-Up','Module 1: Refill Processing','Module 2: New Prescription Processing','Module 3: Insurance Billing Basics','Module 4: SIG Codes and Documentation','Module 5: Common Rejections and Troubleshooting','Module 6: Follow-Up Tags and Queue Management','Practical Application: Medication-Specific Calculations'));
+ALTER TABLE public.question_bank ADD COLUMN IF NOT EXISTS source_kind text NOT NULL DEFAULT 'starter_draft';
+ALTER TABLE public.question_bank ADD COLUMN IF NOT EXISTS source_number integer;
+CREATE UNIQUE INDEX IF NOT EXISTS question_source_unique ON public.question_bank(source_kind,source_number) WHERE source_kind='training_material' AND source_number IS NOT NULL;
