@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 const URL=Deno.env.get("SUPABASE_URL")||"";
 const SERVICE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
 const supabase=createClient(URL,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-const CATS=["ERX Processing","Refill Processing","Insurance & Rejections","LTC Billing","Coupons & Follow-Up"];
+const CATS=["Module 1: Refill Processing","Module 2: New Prescription Processing","Module 3: Insurance Billing Basics","Module 4: SIG Codes and Documentation","Module 5: Common Rejections and Troubleshooting","Module 6: Follow-Up Tags and Queue Management","Practical Application: Medication-Specific Calculations","LTC Billing","Coupons & Follow-Up"];
 const ORIGINS=["https://astonishing-beijinho-a0f70b.netlify.app","https://rboas-assessment.netlify.app","http://localhost:8888","http://localhost:5173"];
 function headers(req:Request){const origin=req.headers.get("origin")||"";return {
  "Access-Control-Allow-Origin":ORIGINS.includes(origin)?origin:ORIGINS[0],
@@ -200,7 +200,7 @@ Deno.serve(async req=>{
     const publishing=Boolean(body.published);
     if(publishing){
      const list=ok(await supabase.from("question_bank").select("category").eq("active",true));
-     if(CATS.some(category=>list.filter((x:any)=>x.category===category).length<5))bad("Review and approve at least five questions from each category before publishing");
+     if(list.length<50||CATS.some(category=>!list.some((x:any)=>x.category===category)))bad("Approve the 50-question bank with all nine training topics represented before publishing");
     }
     const changed=ok(await supabase.from("assessments").update({published:publishing}).eq("id",id).select("id,published").single());
     await record(user.id,"publish_assessment","assessments",id,{published:publishing});data=changed;break;
@@ -226,8 +226,12 @@ Deno.serve(async req=>{
     if(running){data={attempt_id:running.id};break;}
     if(attempts.length>=config.allowed_attempts)bad("No attempts remaining");
     const bank=ok(await supabase.from("question_bank").select("id,category,options").eq("active",true));
-    const pick=CATS.flatMap(category=>shuffle(bank.filter((q:any)=>q.category===category)).slice(0,5));
-    if(pick.length!==25)bad("Assessment question bank is incomplete");
+    if(bank.length<25)bad("Assessment question bank requires at least 25 approved questions");
+    const coverage=CATS.map(category=>shuffle(bank.filter((q:any)=>q.category===category))[0]).filter(Boolean);
+    if(coverage.length!==CATS.length)bad("Assessment coverage is incomplete");
+    const chosen=new Set(coverage.map((q:any)=>q.id));
+    const remaining=shuffle(bank.filter((q:any)=>!chosen.has(q.id))).slice(0,25-coverage.length);
+    const pick=shuffle([...coverage,...remaining]);
     const expires_at=new Date(Date.now()+config.duration_minutes*60*1000).toISOString();
     const newAttempt=ok(await supabase.from("assessment_attempts").insert({
       assignment_id:assignment.id,trainee_id:user.id,attempt_number:attempts.length+1,expires_at
