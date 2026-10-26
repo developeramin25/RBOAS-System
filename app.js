@@ -21,7 +21,7 @@ const ICONS={
 };
 const svg = (name) => '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||ICONS.overview)+'</svg>';
 const esc = (s) => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const state={page:"overview", client:null, signedIn:false, role:"preview", profile:null, user:null, liveExam:null,liveQuestions:[],liveAnswers:{},liveIndex:0,liveSubmitting:false,
+const state={page:"overview", client:null, signedIn:false, role:"preview", profile:null, user:null, liveExam:null,liveQuestions:[],liveAnswers:{},liveIndex:0,liveSubmitting:false,reportDetail:null,reportLoading:false,managementReports:null,
  trainees:[],questions:[],assessments:[],attempts:[],assignments:[],filter:"",question:0,choices:{},quizFinished:false,sessionLoading:true};
 const SAMPLE_TRAINEES=[
  {display_name:"Trainee 001",employee_code:"TR-001",store_code:"475",active:true,created_at:"2026-10-20"},
@@ -57,10 +57,10 @@ function initials(name){return String(name||"T").split(/\s+/).slice(0,2).map(x=>
 function navItems(){if(role()==="trainee")return [["overview","Overview","overview"],["assessments","My assessments","exam"],["results","My results","results"],["settings","My account","settings"]];return [["overview","Overview","overview"],["trainees","Trainees","users"],["questions","Question bank","questions"],["assessments","Assessments","exam"],["results","Results & insights","results"],["settings","Settings","settings"]];}
 function label(){return demo()?"Design preview":role()==="admin"?"Administrator":role()==="manager"?"Manager / HR":"Trainee";}
 function navButton(item){return '<button class="nav-button '+(state.page===item[0]?"active":"")+'" data-nav="'+item[0]+'">'+svg(item[2])+esc(item[1])+'</button>';}
-function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
+function content(){switch(state.page){case "overview":return overview();case "trainees":return trainees();case "questions":return questions();case "assessments":return assessments();case "results":return results();case "report":return report();case "settings":return settings();case "practice":return practice();case "take":return liveExamUi();default:return overview();}}
 function render(){
- const all=navItems();if(!all.some(x=>x[0]===state.page)&&state.page!=="practice")state.page="overview";
- const title=state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
+ const all=navItems();if(!all.some(x=>x[0]===state.page)&&state.page!=="practice"&&state.page!=="report"&&state.page!=="take")state.page="overview";
+ const title=state.page==="report"?"Individual report":state.page==="take"?"Official assessment":state.page==="practice"?"Assessment experience":state.page==="overview"?"Overview":state.page==="questions"?"Question bank":state.page==="trainees"?"Trainees":state.page==="assessments"?"Assessments":state.page==="results"?"Results & insights":"Settings";
  document.getElementById("app").innerHTML=
  '<div class="app-shell"><aside class="sidebar" id="sidebar"><a href="#" class="brand" data-nav="overview">'+
  '<div class="brand-icon">R</div><div><div class="brand-title">RBOAS<span style="color:#58a7f9">.</span></div><div class="brand-sub">ASSESSMENT SYSTEM</div></div></a>'+
@@ -149,25 +149,93 @@ function assessments(){
  (isPreview||role()!=="trainee"?"":assigned.length?"":'<div class="card">'+empty("No assigned assessments","An administrator must assign you a published exam before you can take it.")+'</div>')+
  (isPreview?'':'<div class="spaced"><button class="outline" data-nav="practice">Open the presentation-only demo</button></div>');
 }
+function sampleCategoryBreakdown(){
+ return [{category:"ERX Processing",correct:5,total:5},{category:"Refill Processing",correct:4,total:5},
+ {category:"Insurance & Rejections",correct:3,total:5},{category:"LTC Billing",correct:5,total:5},
+ {category:"Coupons & Follow-Up",correct:3,total:5}];
+}
+function currentResults(){
+ const isDemo=demo();
+ if(isDemo)return [{id:"DEMO-001",name:"Trainee 001",store_code:"475",score_percent:92,passed:true,submitted_at:"2026-10-25T14:30:00Z"},
+ {id:"DEMO-002",name:"Trainee 002",store_code:"1030",score_percent:84,passed:true,submitted_at:"2026-10-24T14:30:00Z"},
+ {id:"DEMO-003",name:"Trainee 003",store_code:"872",score_percent:68,passed:false,submitted_at:"2026-10-23T14:30:00Z"},
+ {id:"DEMO-004",name:"Trainee 004",store_code:"904",score_percent:88,passed:true,submitted_at:"2026-10-22T14:30:00Z"}];
+ return state.attempts.filter(x=>x.status==="submitted").map(x=>{
+  const person=state.trainees.find(t=>t.id===x.trainee_id)||{};
+  return {id:x.id,name:person.display_name||(x.trainee_id===state.user?.id?me():"Authorized trainee"),store_code:person.store_code||"—",score_percent:Number(x.score_percent||0),passed:Boolean(x.passed),submitted_at:x.submitted_at};
+ });
+}
 function results(){
- const rows=demo()?[{id:"DEMO-001",name:"Trainee 001",score_percent:92,passed:true},{id:"DEMO-002",name:"Trainee 002",score_percent:84,passed:true},{id:"DEMO-003",name:"Trainee 003",score_percent:68,passed:false}]:
- state.attempts.filter(x=>x.status==="submitted").map(x=>({id:x.id,name:(state.trainees.find(t=>t.id===x.trainee_id)||{}).display_name||(x.trainee_id===state.user?.id?me():"Authorized trainee"),score_percent:x.score_percent,passed:x.passed}));
- return header(role()==="trainee"?"My results":"Results & insights","Review outcomes and identify training needs.")+
- '<div class="card"><div class="section-heading"><h3>Assessment outcomes</h3><span class="status blue">'+(demo()?"Sample results":"Live authorized results")+'</span></div>'+
- (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Trainee</th><th>Score</th><th>Result</th><th>Exam record</th></tr></thead><tbody>'+rows.map(x=>'<tr><td><div class="person-cell"><span class="initials">'+esc(initials(x.name))+'</span>'+esc(x.name)+'</div></td><td><strong>'+esc(x.score_percent)+'%</strong></td><td><span class="status '+(x.passed?"green":"amber")+'">'+(x.passed?"Passed":"Needs review")+'</span></td><td>'+esc(String(x.id).slice(0,12))+'</td></tr>').join("")+'</tbody></table></div>':
- empty("No submitted exams","Completed assessments and verified grading results will appear here."))+'</div>';
+ const rows=currentResults();
+ const passed=rows.filter(x=>x.passed).length;
+ const percent=rows.length?Math.round(rows.reduce((sum,x)=>sum+x.score_percent,0)/rows.length):0;
+ const completion=demo()?75:state.assignments.length?Math.round(100*rows.length/state.assignments.length):0;
+ const toolbar=role()==="trainee"?"":'<div class="button-row"><button class="outline" data-action="exportReportCSV">'+svg("results")+' Export CSV</button><button class="outline" data-action="printOverview">'+svg("exam")+' Print overview</button></div>';
+ return header(role()==="trainee"?"My assessment results":"Performance & reporting","Measure onboarding outcomes and identify targeted coaching opportunities.",toolbar)+
+ '<div class="stats">'+metric("Submitted exams",rows.length,"exam",demo()?"Demonstration sample":"Verified exam submissions")+
+ metric("Average score",percent+"%","results",demo()?"Sample cohort":"Actual submitted results")+
+ metric("Passing results",passed,"shield",demo()?"Illustrative outcomes":"Verified assessment results")+
+ metric("Completion rate",completion+"%","users",demo()?"Illustrative sample":"Assignments with submitted results")+'</div>'+
+ '<div class="section-grid report-lower">'+
+ '<div class="card"><div class="section-heading"><h3>Assessment outcomes</h3><span class="status blue">'+(demo()?"Sample trainee results":"Authorized records only")+'</span></div>'+
+ (rows.length?'<div class="full-table"><table class="data-table"><thead><tr><th>Trainee / Store</th><th>Score</th><th>Status</th><th>Submitted</th><th>Details</th></tr></thead><tbody>'+
+ rows.map(x=>'<tr><td><div class="person-cell"><span class="initials">'+esc(initials(x.name))+'</span><div>'+esc(x.name)+'<div class="muted">Store '+esc(x.store_code)+'</div></div></div></td>'+
+ '<td><strong>'+esc(x.score_percent)+'%</strong></td><td><span class="status '+(x.passed?"green":"amber")+'">'+(x.passed?"Passed":"Review")+'</span></td>'+
+ '<td>'+esc(x.submitted_at?new Date(x.submitted_at).toLocaleDateString():"—")+'</td>'+
+ '<td><button class="mini-link" data-report-id="'+esc(x.id)+'">View report</button></td></tr>').join("")+'</tbody></table></div>':
+ empty("No reports yet","Official exam reports become available after trainees submit assessments."))+
+ '</div><div class="card"><div class="section-heading"><h3>Management insights</h3></div>'+
+ '<p class="muted">A consistent assessment helps identify learning gaps and prioritize targeted refresher training.</p>'+
+ '<div class="divider"></div>'+activity("Passing threshold","Recommended 80% · 20 of 25 correct answers","shield")+
+ activity("Category-level insights","Five categories with five questions each","results")+
+ activity("Assessment governance","Managers review reports; HR makes onboarding decisions","check")+
+ '<div class="notice" style="margin-top:18px">Results support onboarding decisions; a quiz score is not a substitute for supervised practical competency.</div></div></div>';
+}
+function report(){
+ const d=state.reportDetail;
+ if(!d)return header("Assessment report","Choose a submitted assessment in Results & insights.")+
+ '<button class="outline" data-nav="results">Back to results</button>';
+ const a=d.attempt,person=d.trainee;
+ const categories=a.category_breakdown||[];
+ return '<div class="quiz-container">'+header("Individual assessment report","Training & Development · Remote Billing Onboarding Assessment System",
+ '<div class="button-row"><button class="outline" data-nav="results">Back</button><button class="primary" data-action="printDetail">'+svg("exam")+' Print report</button></div>')+
+ (demo()?'<div class="notice warning">Illustrative report for a demonstration trainee; not a verified employee assessment.</div>':'<div class="notice good">This report reflects a saved Supabase assessment submission and authorized access.</div>')+
+ '<div class="card"><div class="report-heading"><div><div class="eyebrow">ASSESSMENT PERFORMANCE REVIEW</div><h2 style="font-size:23px">'+esc(person.display_name)+'</h2>'+
+ '<p class="muted" style="margin-top:8px">Employee '+esc(person.employee_code||"—")+' · Store '+esc(person.store_code||"—")+'</p>'+
+ '<p class="muted" style="margin-top:5px">Submitted '+esc(a.submitted_at?new Date(a.submitted_at).toLocaleString():"—")+'</p></div>'+
+ '<div class="report-score"><strong>'+esc(a.score_percent)+'%</strong><span class="status '+(a.passed?"green":"amber")+'">'+(a.passed?"Pass":"Review")+'</span></div></div>'+
+ '<div class="divider"></div><div class="grid-summary">'+
+ '<div><p class="small-caps">CORRECT</p><h3>'+esc(a.correct_count)+' / '+esc(a.total)+'</h3></div>'+
+ '<div><p class="small-caps">ANSWERED</p><h3>'+esc(a.answered)+' / '+esc(a.total)+'</h3></div>'+
+ '<div><p class="small-caps">STATUS</p><h3>'+(a.passed?"Passed":"Training review")+'</h3></div></div>'+
+ '<div class="divider"></div><h3 style="font-size:15px">Skills breakdown</h3><p class="muted" style="margin:8px 0 22px">Category results guide follow-up training and coaching.</p>'+
+ categories.map(c=>'<div class="category-line"><span>'+esc(c.category)+'</span><div class="track"><div class="fill" style="width:'+(c.total?c.correct/c.total*100:0)+'%"></div></div><strong>'+esc(c.correct)+'/'+esc(c.total)+'</strong></div>').join("")+
+ '<div class="divider"></div><h3 style="font-size:14px">Manager review</h3>'+
+ '<p class="muted" style="margin-top:9px;line-height:1.8">Suggested discussion: Review categories with missed questions, verify practical billing skills with supervised exercises, and document the final onboarding recommendation separately.</p>'+
+ '<p class="tagline">Confidential training record · No patient information included.</p></div></div>';
 }
 function settings(){
- return header("Workspace settings","Configuration, privacy and account details for the RBOAS platform.")+
- '<div class="card"><div class="section-heading"><h3>System configuration</h3><span class="status green">Database provisioned</span></div><div class="settings-list">'+
+ const config=state.assessments[0]||{id:"demo",duration_minutes:30,passing_percent:80,allowed_attempts:1};
+ const canEdit=!demo()&&role()==="admin"&&!config.published;
+ const form=role()==="admin"&&!demo()?
+ '<div class="card spaced"><div class="section-heading"><h3>Administrator assessment controls</h3><span class="status '+(config.published?"amber":"blue")+'">'+(config.published?"Unpublish to edit":"Draft configuration")+'</span></div>'+
+ '<p class="muted" style="margin-bottom:15px">Official assessments continue to draw exactly five questions from each of the five approved categories.</p>'+
+ '<form id="settingsForm" class="settings-form"><input type="hidden" name="assessment_id" value="'+esc(config.id)+'"/>'+
+ '<label>Duration (minutes)<input type="number" name="duration_minutes" min="10" max="120" required value="'+esc(config.duration_minutes)+'" '+(!canEdit?"disabled":"")+'/></label>'+
+ '<label>Pass mark (%)<input type="number" name="passing_percent" min="50" max="100" required value="'+esc(config.passing_percent)+'" '+(!canEdit?"disabled":"")+'/></label>'+
+ '<label>Allowed attempts<input type="number" name="allowed_attempts" min="1" max="3" required value="'+esc(config.allowed_attempts)+'" '+(!canEdit?"disabled":"")+'/></label>'+
+ '<button class="primary" type="submit" '+(!canEdit?"disabled":"")+'>Save exam settings</button></form></div>':"";
+ return header("Workspace settings","Configuration, privacy and account settings for RBOAS.")+
+ '<div class="card"><div class="section-heading"><h3>System configuration</h3><span class="status green">Backend deployed</span></div><div class="settings-list">'+
  setRow("Application","Remote Billing Onboarding Assessment System")+
- setRow("Backend","Supabase PostgreSQL + Authentication")+
- setRow("Project status","Phase 1: visual interface and secure sign-in")+
- setRow("Access",demo()?"Public demonstration — no employee information":label()+" · "+me())+
- setRow("Question model","50 approved question bank · 25 random per attempt")+
- setRow("Scoring","Server-controlled grading — scheduled, not yet enabled")+
- setRow("Data privacy","Role-based access; answer keys stored in a private schema")+
- '</div></div>'+(demo()?'<div class="spaced"><button class="primary" data-action="login">'+svg("lock")+' Sign in to your account</button></div>':'');
+ setRow("Database","Supabase PostgreSQL (protected by role-based security)")+
+ setRow("Authorization",demo()?"Presentation preview (no employee data)":label()+" · "+me())+
+ setRow("Question bank","50 draft questions; approve against SOP before publishing")+
+ setRow("Exam","25 random questions · 5 per category")+
+ setRow("Scoring","Server-side submission and protected answer keys")+
+ setRow("Reports","Role-limited score and category summaries")+
+ setRow("Readiness","Presentation demo ready · Official onboarding not approved yet")+
+ '</div></div>'+form+(demo()?'<div class="spaced"><button class="primary" data-action="login">'+svg("lock")+' Staff sign-in</button></div>':'');
 }
 function setRow(k,v){return '<div class="settings-row"><b>'+esc(k)+'</b><span>'+esc(v)+'</span></div>';}
 function practice(){
@@ -264,6 +332,33 @@ function initAssignmentForm(){
  t.innerHTML=state.trainees.filter(x=>x.active).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.display_name+' · Store '+(x.store_code||"—"))+'</option>').join("");
  a.innerHTML=state.assessments.filter(x=>x.published).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>').join("");
 }
+async function openReport(id){
+ if(demo()){
+   const row=currentResults().find(x=>x.id===id);
+   if(!row)return;
+   state.reportDetail={
+    trainee:{display_name:row.name,store_code:row.store_code,employee_code:id},
+    attempt:{score_percent:row.score_percent,passed:row.passed,correct_count:Math.round(row.score_percent*.25),
+      answered:25,total:25,submitted_at:row.submitted_at,category_breakdown:sampleCategoryBreakdown()}
+   };
+ }else{
+   state.reportDetail=await api("report_attempt",{attempt_id:id});
+ }
+ state.page="report";render();window.scrollTo({top:0,behavior:"smooth"});
+}
+function exportResultsCSV(){
+ const rows=currentResults();
+ const safeValue=(v)=>{
+  let t=String(v==null?"":v);
+  if(/^[=+\-@\t\r]/.test(t))t="'"+t;
+  return '"'+t.replace(/"/g,'""')+'"';
+ };
+ const header=["Trainee","Store","Score (%)","Result","Submitted at","Record"];
+ const values=[header,...rows.map(x=>[x.name,x.store_code,x.score_percent,x.passed?"Passed":"Review",x.submitted_at||"",x.id])];
+ const csv=values.map(x=>x.map(safeValue).join(",")).join("\r\n");
+ const objectUrl=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+ const a=document.createElement("a");a.href=objectUrl;a.download="rboas-assessment-summary.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+}
 function toast(message){const t=document.createElement("div");t.className="toast";t.textContent=message;document.body.appendChild(t);setTimeout(()=>t.remove(),3300);}
 async function initializeAuth(){
  try{
@@ -290,7 +385,7 @@ async function loadData(){
  const results=await Promise.all([
   admin||manager?state.client.from("user_profiles").select("id,display_name,employee_code,store_code,active,created_at").order("created_at",{ascending:false}):Promise.resolve({data:[]}),
   admin||manager?state.client.from("question_bank").select("id,category,prompt,difficulty,active").order("created_at",{ascending:false}):Promise.resolve({data:[]}),
-  state.client.from("assessments").select("id,title,description,published,duration_minutes,passing_percent,question_count"),
+  state.client.from("assessments").select("id,title,description,published,duration_minutes,passing_percent,question_count,allowed_attempts"),
   state.client.from("assessment_attempts").select("id,trainee_id,score_percent,passed,status,submitted_at").order("started_at",{ascending:false}),
   state.client.from("assessment_assignments").select("id,assessment_id,trainee_id,status")
  ]);
@@ -301,6 +396,8 @@ async function loadData(){
  state.assignments=results[4].data||[];
 }
 document.addEventListener("click",async function(e){
+ const detail=e.target.closest("[data-report-id]");
+ if(detail){try{await openReport(detail.dataset.reportId)}catch(err){toast(err.message||"Report unavailable")}return;}
  const close=e.target.closest("[data-close-dialog]");
  if(close){document.getElementById(close.dataset.closeDialog)?.close();return;}
  const open=e.target.closest("[data-open-dialog]");
@@ -324,6 +421,8 @@ document.addEventListener("click",async function(e){
  const ch=e.target.closest("[data-choice]");if(ch){state.choices[state.question]=Number(ch.dataset.choice);render();return;}const jump=e.target.closest("[data-jump]");if(jump){state.question=Number(jump.dataset.jump);render();return;}
  const btn=e.target.closest("[data-action]");if(!btn)return;
  const action=btn.dataset.action;
+ if(action==="exportReportCSV"){exportResultsCSV();return;}
+ if(action==="printOverview"||action==="printDetail"){window.print();return;}
  if(action==="login"){const d=document.getElementById("authDialog");d.showModal();return;}
  if(action==="logout"){if(state.client)await state.client.auth.signOut();state.signedIn=false;state.profile=null;state.user=null;state.role="preview";state.page="overview";state.trainees=[];state.questions=[];state.attempts=[];state.assignments=[];state.assessments=[];render();toast("Signed out");return;}
  if(action==="prevQuiz"){state.question=Math.max(0,state.question-1);render();return;}
@@ -359,6 +458,22 @@ async function handleAdminForm(formId,messageId,build,action,dialogId){
   catch(err){msg.textContent=err.message||"Operation failed";}finally{button.disabled=false;}
  });
 }
+document.addEventListener("submit",async e=>{
+ if(e.target.id!=="settingsForm")return;
+ e.preventDefault();
+ const button=e.target.querySelector('button[type="submit"]');button.disabled=true;
+ try{
+  const form=new FormData(e.target);
+  await api("assessment_settings",{
+   assessment_id:form.get("assessment_id"),
+   duration_minutes:Number(form.get("duration_minutes")),
+   passing_percent:Number(form.get("passing_percent")),
+   allowed_attempts:Number(form.get("allowed_attempts"))
+  });
+  await reload();toast("Settings saved");
+ }catch(err){toast(err.message||"Unable to save settings");}
+ finally{button.disabled=false;}
+});
 handleAdminForm("inviteForm","inviteMessage",f=>({
  display_name:f.get("display_name"),email:f.get("email"),store_code:f.get("store_code"),employee_code:f.get("employee_code"),role:f.get("role")
 }),"invite","inviteDialog");
