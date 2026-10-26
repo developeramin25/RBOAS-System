@@ -27,3 +27,6 @@
 @media(max-width:1000px){.settings-form{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.settings-form{grid-template-columns:1fr}.report-heading{align-items:flex-start;flex-direction:column}.grid-summary{grid-template-columns:1fr}}
 @media print{body{background:white!important}.report-lower{display:block}.report-score{border:1px solid #e3ebf5}.notice{display:none!important}.report-heading{flex-direction:row}.main{padding:0}}
+
+.toggle-row{display:flex!important;align-items:center;gap:11px;margin-top:12px}
+.toggle-row input{width:17px;height:17px;accent-color:#2879e6}
