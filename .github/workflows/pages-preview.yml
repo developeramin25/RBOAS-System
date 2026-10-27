@@ -1,0 +1,50 @@
+name: Publish RBOAS preview to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rboas-github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source syntax and tests
+        run: |
+          node --check app.js
+          node --check demo-bank.js
+          node --input-type=module --check < auth-pages.js
+          node --test tests/*.test.cjs
+      - name: Prepare project-relative static website
+        run: |
+          node scripts/prepare-pages.mjs
+          node --check site-preview/app.js
+          node --check site-preview/demo-bank.js
+          node --input-type=module --check < site-preview/auth-pages.js
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload preview website
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site-preview
+      - name: Publish Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
