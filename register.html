@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8"/>
+ <meta name="viewport" content="width=device-width, initial-scale=1"/>
+ <meta name="theme-color" content="#f5f9fe"/>
+ <meta name="description" content="RBOAS secure registration for remote billing onboarding."/>
+ <title>Register | RBOAS</title>
+ <link rel="preconnect" href="https://fonts.googleapis.com"/>
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+ <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+ <link rel="stylesheet" href="/auth-pages.css"/>
+</head>
+<body data-page="register">
+ <main class="account-layout">
+  <section class="showcase" aria-label="About RBOAS">
+   <div class="showcase-inner">
+    <a class="brand" href="/login.html" aria-label="RBOAS home"><span class="brand-mark">R</span><span><strong>RBOAS<span class="period">.</span></strong><small>REMOTE BILLING ASSESSMENT SYSTEM</small></span></a>
+    <div class="showcase-main">
+      <span class="eyebrow"><span class="eyebrow-dot"></span> REMOTE BILLING · TRAINING EXCELLENCE</span>
+      <h1>Smarter onboarding.<br/><span>Stronger teams.</span></h1>
+      <p>One place to evaluate knowledge, guide new team members and make evidence-based training decisions.</p>
+      <div class="feature-card">
+        <div class="feature-top"><span class="feature-icon">▣</span><div><strong>Structured assessment journey</strong><small>Five-day onboarding evaluation</small></div><span class="feature-check">✓</span></div>
+        <div class="feature-progress"><span></span></div>
+        <div class="feature-data"><div><strong>50</strong><small>Question bank</small></div><i></i><div><strong>25</strong><small>Per assessment</small></div><i></i><div><strong>9</strong><small>Learning topics</small></div></div>
+      </div>
+      <div class="highlights"><span>✧ Secure role access</span><span>✧ Clear performance reports</span><span>✧ Supabase-powered</span></div>
+    </div>
+    <footer class="showcase-foot">© RBOAS Training & Development <span>Confidential employee workspace</span></footer>
+   </div>
+   <div class="deco deco-a"></div><div class="deco deco-b"></div><div class="deco-grid"></div>
+  </section>
+  <section class="account-panel">
+   <header class="panel-top"><span><span class="status-dot"></span> Secure staff access</span><a href="/?demo=1">View presentation demo <span aria-hidden="true">↗</span></a></header>
+   <div class="form-content">
+     <div class="mobile-brand"><span class="brand-mark">R</span><strong>RBOAS.</strong></div>
+     <span class="tag">STAFF REGISTRATION</span>
+     <h2>Create your account</h2><p class="subtitle">Register your profile with a verified invitation.</p>
+     
+  <div id="enrollmentView">
+    <div class="steps"><span class="step active">1 <b>Invitation</b></span><span class="step-line"></span><span class="step">2 <b>Verification</b></span><span class="step-line"></span><span class="step">3 <b>Profile</b></span></div>
+    <p class="stage-help">Enter the email address approved for your role. We'll send a secure activation invitation if you're eligible.</p>
+    <form class="account-form" id="enrollmentForm">
+      <label for="enrollEmail">Approved email address</label>
+      <div class="input-wrap"><span class="field-icon">✉</span><input type="email" id="enrollEmail" name="email" placeholder="name@company.com" autocomplete="email" required/></div>
+      <div class="inline-status" id="enrollMessage" role="status" aria-live="polite"></div>
+      <button class="submit-action" type="submit" id="enrollSubmit">Request registration link <span>→</span></button>
+    </form>
+  </div>
+  <div id="profileView" hidden>
+    <div class="steps"><span class="step done">✓ <b>Invitation</b></span><span class="step-line done"></span><span class="step done">✓ <b>Verified</b></span><span class="step-line done"></span><span class="step active">3 <b>Profile</b></span></div>
+    <div class="verified-banner"><span class="verified-check">✓</span><span><strong>Email verified</strong><small id="verifiedEmail"></small></span></div>
+    <p class="stage-help">Complete your account profile and choose a new password. We'll return you to Sign in when registration is finished.</p>
+    <form class="account-form" id="profileForm">
+      <label for="profileName">Full name</label>
+      <div class="input-wrap"><span class="field-icon">♙</span><input type="text" id="profileName" name="name" autocomplete="name" placeholder="Your full name" minlength="2" maxlength="120" required/></div>
+      <label for="profileRole">Assigned role</label>
+      <div class="input-wrap"><span class="field-icon">◇</span><input id="profileRole" name="role" type="text" value="Verified staff account" disabled/></div>
+      <label for="profilePassword">Create password</label>
+      <div class="input-wrap"><span class="field-icon">⌑</span><input type="password" id="profilePassword" name="password" autocomplete="new-password" placeholder="At least 12 characters" minlength="12" maxlength="128" required/><button class="show-password" type="button" data-toggle="profilePassword">Show</button></div>
+      <label for="profileConfirm">Confirm password</label>
+      <div class="input-wrap"><span class="field-icon">⌑</span><input type="password" id="profileConfirm" name="confirm" autocomplete="new-password" placeholder="Re-enter password" minlength="12" maxlength="128" required/><button class="show-password" type="button" data-toggle="profileConfirm">Show</button></div>
+      <div class="password-advice">Use a unique password. Never reuse passwords shared in chats or with colleagues.</div>
+      <div class="inline-status" id="profileMessage" role="status" aria-live="polite"></div>
+      <button class="submit-action" type="submit" id="profileSubmit">Complete registration <span>→</span></button>
+    </form>
+  </div>
+  <div class="form-bottom">Already registered? <a href="/login.html">Sign in</a></div>
+  <div class="note-panel"><span class="note-icon">♧</span><span>Administrator, Manager / HR and Trainee roles are assigned through Supabase; visitors cannot grant themselves privileged access.</span></div>
+   </div>
+   <footer class="account-foot"><span>Protected by Supabase Authentication</span><span>RBOAS · Register</span></footer>
+  </section>
+ </main>
+ <script type="module" src="/auth-pages.js"></script>
+</body>
+</html>
