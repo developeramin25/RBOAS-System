@@ -50,11 +50,11 @@ Deno.serve(async req=>{
     await record(user.id,"activate_preapproved_role","user_profiles",user.id,{role:assigned_role});
     return json(req,{data:{activated:true,assigned_role}});
   }
-  const person=ok(await supabase.from("user_profiles").select("id,active,display_name").eq("id",user.id).maybeSingle());
+  const person=ok(await supabase.from("user_profiles").select("id,active,display_name,store_code").eq("id",user.id).maybeSingle());
   if(!person||!person.active)bad("RBOAS account not activated",403);
   const role=user.app_metadata?.rboas_role||"trainee";
   const adminOnly=()=>{if(role!=="admin")bad("Administrator role required",403);};
-  const staffOnly=()=>{if(role!=="admin"&&role!=="manager")bad("Manager role required",403);};
+  const staffOnly=()=>{if(!["admin","manager","hr"].includes(role))bad("Staff role required",403);};
   const ownAttempt=async(value:unknown)=>{
    const attempt=ok(await supabase.from("assessment_attempts").select("*").eq("id",uid(value)).maybeSingle());
    if(!attempt||attempt.trainee_id!==user.id)bad("Attempt not found",404);
@@ -62,6 +62,70 @@ Deno.serve(async req=>{
   };
   let data:any=null;
   switch(action){
+   case "team_overview":{
+    // Managers only receive their own trainees; HR sees the training cohort;
+    // trainees see only their own records. Never include answer keys.
+    const all=ok(await supabase.from("user_profiles")
+      .select("id,display_name,email,employee_code,store_code,manager_id,active,created_at")
+      .order("created_at",{ascending:false}).limit(1000));
+    const members=role==="admin"||role==="hr"?all:
+      role==="manager"?all.filter((p:any)=>p.id===user.id||p.manager_id===user.id):
+      all.filter((p:any)=>p.id===user.id);
+    const ids=members.map((p:any)=>p.id);
+    const assessments=ok(await supabase.from("assessments")
+      .select("id,title,description,question_count,duration_minutes,passing_percent,allowed_attempts,published"));
+    const assignments=ids.length?ok(await supabase.from("assessment_assignments")
+      .select("id,assessment_id,trainee_id,status,available_from,due_at,assigned_at")
+      .in("trainee_id",ids).order("assigned_at",{ascending:false}).limit(1000)):[];
+    const attempts=ids.length?ok(await supabase.from("assessment_attempts")
+      .select("id,assignment_id,trainee_id,status,score_percent,passed,submitted_at,started_at")
+      .in("trainee_id",ids).order("started_at",{ascending:false}).limit(1000)):[];
+    const qs=role==="trainee"?[]:ok(await supabase.from("question_bank")
+      .select(role==="admin"?"id,category,prompt,active,source_kind,source_number,difficulty":"id,category,active")
+      .order("category").limit(1000));
+    data={people:members,assessments,assignments,attempts,questions:qs,
+      current_user:{id:user.id,role,display_name:person.display_name,store_code:person.store_code}};break;
+   }
+   case "staff_requests":{
+    adminOnly();
+    const rows=ok(await supabase.from("staff_access_requests").select("*")
+      .order("created_at",{ascending:false}).limit(100));
+    const review=await Promise.all(rows.map(async(row:any)=>{
+      const account=await supabase.auth.admin.getUserById(row.auth_user_id);
+      return {...row,email_verified:!!account.data.user?.email_confirmed_at};
+    }));
+    data=review;break;
+   }
+   case "staff_request_review":{
+    adminOnly();
+    const requestId=uid(body.id);
+    const approval=body.approve===true;
+    const request=ok(await supabase.from("staff_access_requests")
+      .select("*").eq("id",requestId).maybeSingle());
+    if(!request||request.status!=="pending")bad("Request is no longer pending");
+    if(!["manager","hr"].includes(request.requested_role))bad("Invalid staff role");
+    if(approval){
+      const account=ok(await supabase.auth.admin.getUserById(request.auth_user_id));
+      if(!account.user||!account.user.email_confirmed_at||
+          account.user.email?.toLowerCase()!==request.email.toLowerCase())
+          bad("The applicant must verify the email before approval");
+      const metadata=account.user.app_metadata||{};
+      ok(await supabase.auth.admin.updateUserById(account.user.id,{
+        app_metadata:{...metadata,rboas_role:request.requested_role}
+      }));
+      ok(await supabase.from("user_profiles").upsert({
+        id:account.user.id,email:request.email,display_name:request.display_name,
+        store_code:request.requested_role==="manager"?request.store_code:null,active:true
+      },{onConflict:"id"}));
+    }
+    ok(await supabase.from("staff_access_requests").update({
+      status:approval?"approved":"rejected",reviewed_at:new Date().toISOString(),
+      reviewed_by:user.id
+    }).eq("id",requestId).eq("status","pending"));
+    await record(user.id,approval?"approve_staff_request":"reject_staff_request",
+      "staff_access_requests",requestId,{role:request.requested_role});
+    data={approved:approval};break;
+   }
    case "profile_setup":{
     const display_name=text(body.display_name,"full name",120,2);
     // The authenticated user may update only their own display name.
@@ -74,9 +138,9 @@ Deno.serve(async req=>{
     break;
    }
    case "reports_summary":{
-    if(role!=="admin"&&role!=="manager")bad("Staff access required",403);
+    staffOnly();
     const people=ok(await supabase.from("user_profiles").select("id,display_name,store_code,manager_id,active").order("created_at",{ascending:false}));
-    const allowed=role==="admin"?people:people.filter((p:any)=>p.manager_id===user.id);
+    const allowed=role==="admin"||role==="hr"?people:people.filter((p:any)=>p.manager_id===user.id);
     const allowedIds=allowed.map((p:any)=>p.id);
     const attempts=allowedIds.length?ok(await supabase.from("assessment_attempts")
       .select("id,trainee_id,assignment_id,score_percent,passed,status,started_at,submitted_at,correct_count")
@@ -91,9 +155,9 @@ Deno.serve(async req=>{
     const attempt=ok(await supabase.from("assessment_attempts").select("*").eq("id",attemptId).maybeSingle());
     if(!attempt||attempt.status!=="submitted")bad("Submitted attempt not found",404);
     if(attempt.trainee_id!==user.id && role!=="admin"){
-      if(role!=="manager")bad("Report access denied",403);
+      if(role!=="manager"&&role!=="hr")bad("Report access denied",403);
       const managed=ok(await supabase.from("user_profiles").select("manager_id").eq("id",attempt.trainee_id).maybeSingle());
-      if(!managed||managed.manager_id!==user.id)bad("Report access denied",403);
+      if(!managed||(role==="manager"&&managed.manager_id!==user.id))bad("Report access denied",403);
     }
     const questions=ok(await supabase.from("attempt_questions").select("id,question_id,displayed_options").eq("attempt_id",attempt.id));
     if(!questions.length)bad("No assessment questions found");
@@ -150,13 +214,16 @@ Deno.serve(async req=>{
     break;
    }
    case "invite":{
-    adminOnly();const email=text(body.email,"email",254,6).toLowerCase();
+    staffOnly();const email=text(body.email,"email",254,6).toLowerCase();
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))bad("Invalid email");
     const display_name=text(body.display_name,"name",120,2);
     const store_code=typeof body.store_code==="string"?body.store_code.trim().slice(0,30):null;
     const employee_code=typeof body.employee_code==="string"?body.employee_code.trim().slice(0,30):null;
-    const newRole=["trainee","manager"].includes(body.role)?body.role:"trainee";
-    const manager_id=body.manager_id?uid(body.manager_id):null;
+    const newRole=role==="admin"&&["trainee","manager","hr"].includes(body.role)?body.role:"trainee";
+    if(role!=="admin"&&newRole!=="trainee")bad("Only trainees can be created by Manager or HR",403);
+    if(role==="manager"&&(!person.store_code||store_code!==person.store_code))bad("You may only invite trainees for your assigned store",403);
+    if(!store_code&&newRole==="trainee")bad("Choose the trainee store",400);
+    const manager_id=role==="admin"?(body.manager_id?uid(body.manager_id):null):user.id;
     const invited=ok(await supabase.auth.admin.inviteUserByEmail(email,{data:{display_name},redirectTo:"https://astonishing-beijinho-a0f70b.netlify.app/"}));
     if(!invited?.user)bad("Invitation was not created");
     const invitedUser=invited.user;
@@ -183,14 +250,14 @@ Deno.serve(async req=>{
     const store_code=typeof body.store_code==="string"?body.store_code.trim().slice(0,30):null;
     const employee_code=typeof body.employee_code==="string"?body.employee_code.trim().slice(0,30):null;
     const active=Boolean(body.active);
-    const staffRole=["manager","trainee"].includes(body.role)?body.role:"trainee";
+    const staffRole=["manager","hr","trainee"].includes(body.role)?body.role:"trainee";
     let manager_id=body.manager_id?uid(body.manager_id):null;
     if(manager_id===id)bad("An employee cannot manage themself");
     if(manager_id){
       const manager=ok(await supabase.from("user_profiles").select("id,active").eq("id",manager_id).maybeSingle());
       if(!manager||!manager.active)bad("Manager account must be active");
       const managerAccount=ok(await supabase.auth.admin.getUserById(manager_id));
-      if(!["admin","manager"].includes(managerAccount.user?.app_metadata?.rboas_role))bad("Selected account is not a manager");
+      if(!["admin","manager","hr"].includes(managerAccount.user?.app_metadata?.rboas_role))bad("Selected account is not a manager");
     }
     const account=ok(await supabase.auth.admin.getUserById(id));
     if(account.user?.app_metadata?.rboas_role==="admin")bad("This workflow cannot modify administrator accounts");
@@ -248,11 +315,15 @@ Deno.serve(async req=>{
     await record(user.id,"publish_assessment","assessments",id,{published:publishing});data=changed;break;
    }
    case "assignment_create":{
-    adminOnly();
+    staffOnly();
     const trainee_id=uid(body.trainee_id),assessment_id=uid(body.assessment_id);
     const trainee=ok(await supabase.from("user_profiles").select("id,active").eq("id",trainee_id).maybeSingle());
     const assessment=ok(await supabase.from("assessments").select("id,published").eq("id",assessment_id).maybeSingle());
     if(!trainee||!trainee.active||!assessment||!assessment.published)bad("Trainee must be active and assessment must be published");
+    if(role==="manager"||role==="hr"){
+      const owner=ok(await supabase.from("user_profiles").select("manager_id").eq("id",trainee_id).single());
+      if(role==="manager"&&owner.manager_id!==user.id)bad("Only your own trainees can be assigned",403);
+    }
     const start=body.available_from?new Date(body.available_from):null;
     const due=body.due_at?new Date(body.due_at):null;
     if(start&&Number.isNaN(start.getTime()))bad("Invalid availability date");
