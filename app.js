@@ -455,7 +455,7 @@ async function initializeAuth(){
   const result=await state.client.auth.getSession();
   if(result.data&&result.data.session)await syncUser();
  }catch(e){console.warn("Supabase initialization unavailable:",e.message);}
- finally{state.sessionLoading=false;render();}
+ finally{state.sessionLoading=false;render();if(state.passwordSetupNeeded&&state.signedIn){state.passwordSetupNeeded=false;document.getElementById("passwordDialog").showModal();}}
 }
 async function syncUser(){
  const res=await state.client.auth.getUser();
@@ -470,6 +470,7 @@ async function syncUser(){
    try {
      // Only an email preapproved in private Supabase records is eligible.
      await api("activate_preapproved");
+     state.passwordSetupNeeded=true;
      const refreshed=await state.client.auth.refreshSession();
      if(refreshed.error)throw refreshed.error;
      const info=await state.client.auth.getUser();
@@ -595,36 +596,21 @@ document.getElementById("activateFromLogin").addEventListener("click",()=>{
 });
 document.getElementById("activateForm").addEventListener("submit",async e=>{
  e.preventDefault();
- const form=e.target,message=document.getElementById("activateMessage"),button=document.getElementById("activateSubmit");
- message.textContent="";
- const fd=new FormData(form);
- const email=String(fd.get("email")||"").trim().toLowerCase();
- const name=String(fd.get("display_name")||"").trim();
- const password=String(fd.get("password")||"");
- const confirm=String(fd.get("confirm")||"");
- if(password.length<12){message.textContent="Choose a password of at least 12 characters.";return;}
- if(password!==confirm){message.textContent="Passwords do not match.";return;}
- button.disabled=true;
+ const message=document.getElementById("activateMessage");
+ const button=document.getElementById("activateSubmit");
+ const email=String(new FormData(e.target).get("email")||"").trim().toLowerCase();
+ message.textContent="";button.disabled=true;
  try{
-   if(!state.client)throw Error("Authentication service is unavailable. Refresh and retry.");
-   const signup=await state.client.auth.signUp({
-     email,password,
-     options:{data:{display_name:name},emailRedirectTo:window.location.origin+"/"}
-   });
-   if(signup.error)throw signup.error;
-   if(signup.data.session){
-     await syncUser();
-     document.getElementById("activateDialog").close();
-     form.reset();state.page="overview";render();
-     toast("Your RBOAS account is activated");
-   }else{
-     // Email confirmation is required before role activation.
-     message.style.color="#28765c";
-     message.textContent="Check your inbox and verify your email, then return here and sign in.";
-     form.reset();
-   }
- }catch(error){message.style.color="#c04c4c";message.textContent=error.message||"Unable to register this account.";}
- finally{button.disabled=false;}
+   if(!state.client)throw Error("Authentication service unavailable. Refresh the website.");
+   const response=await state.client.functions.invoke("rboas-enrollment",{body:{email}});
+   if(response.error)throw response.error;
+   message.style.color="#28765c";
+   message.textContent="If approved, an invitation email will arrive. Open that link, then set your password after activation.";
+   e.target.reset();
+ }catch(error){
+   message.style.color="#c04c4c";
+   message.textContent="Request could not be processed. Try again later or contact the administrator.";
+ }finally{button.disabled=false;}
 });
 document.getElementById("closeLogin").addEventListener("click",()=>document.getElementById("authDialog").close());
 document.getElementById("loginForm").addEventListener("submit",async function(e){
@@ -637,7 +623,7 @@ document.getElementById("loginForm").addEventListener("submit",async function(e)
   const password=document.getElementById("loginPassword").value;
   const login=await state.client.auth.signInWithPassword({email:email,password:password});
   if(login.error)throw login.error;
-  await syncUser();state.page="overview";document.getElementById("authDialog").close();e.target.reset();render();toast("Signed in to your secure workspace");
+  await syncUser();state.page="overview";document.getElementById("authDialog").close();e.target.reset();render();if(state.passwordSetupNeeded){state.passwordSetupNeeded=false;document.getElementById("passwordDialog").showModal();}toast("Signed in to your secure workspace");
  }catch(error){msg.textContent=error.message||"Unable to sign in. Check your credentials.";}
  finally{button.disabled=false;button.textContent="Sign in securely";}
 });
