@@ -62,6 +62,17 @@ Deno.serve(async req=>{
   };
   let data:any=null;
   switch(action){
+   case "profile_setup":{
+    const display_name=text(body.display_name,"full name",120,2);
+    // The authenticated user may update only their own display name.
+    // Role, store, and manager assignment remain server-controlled.
+    data=ok(await supabase.from("user_profiles")
+      .update({display_name})
+      .eq("id",user.id)
+      .select("id,display_name,email,store_code").single());
+    await record(user.id,"complete_profile","user_profiles",user.id);
+    break;
+   }
    case "reports_summary":{
     if(role!=="admin"&&role!=="manager")bad("Staff access required",403);
     const people=ok(await supabase.from("user_profiles").select("id,display_name,store_code,manager_id,active").order("created_at",{ascending:false}));
