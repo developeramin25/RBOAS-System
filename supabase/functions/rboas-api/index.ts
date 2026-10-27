@@ -3,7 +3,7 @@ const URL=Deno.env.get("SUPABASE_URL")||"";
 const SERVICE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
 const supabase=createClient(URL,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const CATS=["Module 1: Refill Processing","Module 2: New Prescription Processing","Module 3: Insurance Billing Basics","Module 4: SIG Codes and Documentation","Module 5: Common Rejections and Troubleshooting","Module 6: Follow-Up Tags and Queue Management","Practical Application: Medication-Specific Calculations","LTC Billing","Coupons & Follow-Up"];
-const ORIGINS=["https://astonishing-beijinho-a0f70b.netlify.app","https://rboas-assessment.netlify.app","http://localhost:8888","http://localhost:5173"];
+const ORIGINS=["https://astonishing-beijinho-a0f70b.netlify.app","https://rboas-assessment.netlify.app","https://developeramin25.github.io","http://localhost:8888","http://localhost:5173"];
 function headers(req:Request){const origin=req.headers.get("origin")||"";return {
  "Access-Control-Allow-Origin":ORIGINS.includes(origin)?origin:ORIGINS[0],
  "Access-Control-Allow-Headers":"authorization,apikey,content-type,x-client-info",
