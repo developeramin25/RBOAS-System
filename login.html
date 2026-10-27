@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8"/>
+ <meta name="viewport" content="width=device-width, initial-scale=1"/>
+ <meta name="theme-color" content="#f5f9fe"/>
+ <meta name="description" content="RBOAS secure login for remote billing onboarding."/>
+ <title>Sign in | RBOAS</title>
+ <link rel="preconnect" href="https://fonts.googleapis.com"/>
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+ <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+ <link rel="stylesheet" href="/auth-pages.css"/>
+</head>
+<body data-page="login">
+ <main class="account-layout">
+  <section class="showcase" aria-label="About RBOAS">
+   <div class="showcase-inner">
+    <a class="brand" href="/login.html" aria-label="RBOAS home"><span class="brand-mark">R</span><span><strong>RBOAS<span class="period">.</span></strong><small>REMOTE BILLING ASSESSMENT SYSTEM</small></span></a>
+    <div class="showcase-main">
+      <span class="eyebrow"><span class="eyebrow-dot"></span> REMOTE BILLING · TRAINING EXCELLENCE</span>
+      <h1>Smarter onboarding.<br/><span>Stronger teams.</span></h1>
+      <p>One place to evaluate knowledge, guide new team members and make evidence-based training decisions.</p>
+      <div class="feature-card">
+        <div class="feature-top"><span class="feature-icon">▣</span><div><strong>Structured assessment journey</strong><small>Five-day onboarding evaluation</small></div><span class="feature-check">✓</span></div>
+        <div class="feature-progress"><span></span></div>
+        <div class="feature-data"><div><strong>50</strong><small>Question bank</small></div><i></i><div><strong>25</strong><small>Per assessment</small></div><i></i><div><strong>9</strong><small>Learning topics</small></div></div>
+      </div>
+      <div class="highlights"><span>✧ Secure role access</span><span>✧ Clear performance reports</span><span>✧ Supabase-powered</span></div>
+    </div>
+    <footer class="showcase-foot">© RBOAS Training & Development <span>Confidential employee workspace</span></footer>
+   </div>
+   <div class="deco deco-a"></div><div class="deco deco-b"></div><div class="deco-grid"></div>
+  </section>
+  <section class="account-panel">
+   <header class="panel-top"><span><span class="status-dot"></span> Secure staff access</span><a href="/?demo=1">View presentation demo <span aria-hidden="true">↗</span></a></header>
+   <div class="form-content">
+     <div class="mobile-brand"><span class="brand-mark">R</span><strong>RBOAS.</strong></div>
+     <span class="tag">ACCESS YOUR WORKSPACE</span>
+     <h2>Welcome back</h2><p class="subtitle">Sign in to your secure billing training workspace.</p>
+     
+  <form class="account-form" id="loginForm">
+    <label for="email">Email address</label>
+    <div class="input-wrap"><span class="field-icon">✉</span><input type="email" id="email" name="email" placeholder="name@company.com" autocomplete="username" required/></div>
+    <div class="label-between"><label for="password">Password</label><button class="text-link" type="button" id="forgotPassword">Forgot password?</button></div>
+    <div class="input-wrap"><span class="field-icon">⌑</span><input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required/><button class="show-password" type="button" data-toggle="password" aria-label="Show password">Show</button></div>
+    <div class="inline-status" id="formMessage" role="status" aria-live="polite"></div>
+    <button class="submit-action" type="submit" id="submitButton">Sign in to dashboard <span>→</span></button>
+  </form>
+  <div class="form-bottom">New to RBOAS? <a href="/register.html">Create your profile</a></div>
+  <div class="note-panel"><span class="note-icon">✧</span><span>Accounts are issued to approved staff. Your access is managed securely by your administrator.</span></div>
+   </div>
+   <footer class="account-foot"><span>Protected by Supabase Authentication</span><span>RBOAS · Sign in</span></footer>
+  </section>
+ </main>
+ <script type="module" src="/auth-pages.js"></script>
+</body>
+</html>
