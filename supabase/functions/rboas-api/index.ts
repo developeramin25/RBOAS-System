@@ -32,24 +32,23 @@ Deno.serve(async req=>{
   const action=text(body?.action,"action",40);
   // Bootstrap is exclusively for a previously allowlisted, email-verified Supabase user.
   // All authorization decisions happen here with the service role, never in the browser.
-  if(action==="bootstrap_admin"){
-    if(!user.email||!user.email_confirmed_at)bad("A verified work email is required",403);
-    const allowed=ok(await supabase.rpc("rboas_claim_bootstrap",{
+  if(action==="bootstrap_admin"||action==="activate_preapproved"){
+    if(!user.email||!user.email_confirmed_at)bad("Verify your email before activating your RBOAS account",403);
+    const assigned_role=ok(await supabase.rpc("rboas_claim_preapproved",{
       p_email:user.email.toLowerCase(),p_user_id:user.id
     }));
-    if(!allowed)bad("This account is not authorized to activate administration",403);
-    const oldMeta=user.app_metadata||{};
+    if(!["admin","manager"].includes(assigned_role))bad("This email is not preapproved. Contact the administrator.",403);
+    const existing=user.app_metadata||{};
     ok(await supabase.auth.admin.updateUserById(user.id,{
-      app_metadata:{...oldMeta,rboas_role:"admin"}
+      app_metadata:{...existing,rboas_role:assigned_role}
     }));
-    const display_name=(typeof user.user_metadata?.display_name==="string"
-      && user.user_metadata.display_name.trim().length>=2)
+    const display_name=(typeof user.user_metadata?.display_name==="string" && user.user_metadata.display_name.trim().length>=2)
       ?user.user_metadata.display_name.trim().slice(0,120):user.email.split("@")[0];
     ok(await supabase.from("user_profiles").upsert({
-      id:user.id,display_name,email:user.email.toLowerCase(),active:true
+      id:user.id,email:user.email.toLowerCase(),display_name,active:true
     },{onConflict:"id"}));
-    await record(user.id,"activate_first_admin","user_profiles",user.id);
-    return json(req,{data:{activated:true}});
+    await record(user.id,"activate_preapproved_role","user_profiles",user.id,{role:assigned_role});
+    return json(req,{data:{activated:true,assigned_role}});
   }
   const person=ok(await supabase.from("user_profiles").select("id,active,display_name").eq("id",user.id).maybeSingle());
   if(!person||!person.active)bad("RBOAS account not activated",403);
