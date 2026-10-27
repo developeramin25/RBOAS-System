@@ -1,12 +1,13 @@
 import {useCallback,useEffect,useMemo,useState} from 'react'
-import type {FormEvent,ReactNode} from 'react'
+import type {ReactNode} from 'react'
 import {
-  Activity,ArrowLeft,ArrowRight,BarChart3,BookOpenCheck,CheckCircle2,ClipboardCheck,
-  Clock,Download,FileText,HelpCircle,LayoutDashboard,Lock,LogOut,Mail,
-  MapPin,Plus,Printer,Search,Settings,ShieldCheck,UserPlus,Users,X
+  Activity,ArrowRight,BarChart3,BookOpenCheck,CheckCircle2,ClipboardCheck,
+  Clock,Download,HelpCircle,LayoutDashboard,LogOut,
+  Plus,Search,Settings,ShieldCheck,UserPlus,Users
 } from 'lucide-react'
 import {callApi,fmtDate,roleLabel,shortName,STORES,supabase,TRAINING_CATEGORIES} from './lib'
-import type {AccessRequest,Assignment,Assessment,Attempt,ExamReport,ExamState,OverviewData,Question,StaffProfile,UserRole} from './lib'
+import type {AccessRequest,Assignment,ExamReport,ExamState,OverviewData,Question,StaffProfile,UserRole} from './lib'
+import {InviteModal,AssignModal,QuestionModal,ExamView,ReportView,SettingsPanel} from './DashboardParts'
 import type {Identity} from './useAuth'
 
 type Props={identity:Identity;go:(route:string)=>void;notify:(message:string)=>void;refresh:()=>Promise<void>}
@@ -26,14 +27,6 @@ function Card({children,className=''}:{children:ReactNode;className?:string}){
 }
 function Empty({message,description}:{message:string;description:string}){
   return <div className="empty-state"><BookOpenCheck size={29}/><h3>{message}</h3><p>{description}</p></div>
-}
-function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){
-  return <div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-    <section className="modal-dialog" role="dialog" aria-modal="true" aria-label={title}>
-      <header><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></header>
-      {children}
-    </section>
-  </div>
 }
 function badge(value:string,kind:'success'|'warning'|'neutral'='neutral'){
   return <span className={'status-badge '+kind}>{value}</span>
@@ -102,7 +95,6 @@ export default function Dashboard({identity,go,notify,refresh}:Props){
   const published=data?.assessments.find(a=>a.published)
   const pendingRequests=requests.filter(r=>r.status==='pending')
   const assigned=data?.assignments||[]
-  const assignmentById=useMemo(()=>new Map((data?.assignments||[]).map(a=>[a.id,a])),[data])
   const peopleById=useMemo(()=>new Map((data?.people||[]).map(p=>[p.id,p])),[data])
   async function perform(fn:()=>Promise<unknown>,success:string){
     try{await fn();notify(success);await load();setModal(null)}
@@ -250,7 +242,7 @@ export default function Dashboard({identity,go,notify,refresh}:Props){
         </>}
         {section==='questions'&&admin&&<>
           <Heading title="Question bank" description="Review the 50 draft questions against the latest company SOPs."
-            actions={<button className="button-blue" onClick={()=>setModal('question')}><Plus size={17}/> Add question</button>}/>
+            actions={<button className="button-blue" onClick={()=>{setEditQuestionInitial(null);setModal('question')}}><Plus size={17}/> Add question</button>}/>
           <div className="notice-banner"><HelpCircle size={17}/> {approved} approved · {draft} awaiting review. Published assessments require administrator approval of all training topics.</div>
           <Card>{data?.questions.length?<div className="table-scroll"><table><thead><tr><th>Question</th><th>Topic</th><th>Status</th><th>Review</th></tr></thead>
             <tbody>{data.questions.map(q=><tr key={q.id}><td className="question-text">{q.prompt||'Question'}</td><td>{q.category}</td>
