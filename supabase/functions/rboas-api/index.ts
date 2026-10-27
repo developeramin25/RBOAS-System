@@ -33,7 +33,7 @@ Deno.serve(async req=>{
   // Bootstrap is exclusively for a previously allowlisted, email-verified Supabase user.
   // All authorization decisions happen here with the service role, never in the browser.
   if(action==="bootstrap_admin"||action==="activate_preapproved"){
-    if(!user.email||!user.email_confirmed_at)bad("Verify your email before activating your RBOAS account",403);
+    if(!user.email||!user.email_confirmed_at||!user.invited_at)bad("Accept your secure email invitation before activating your RBOAS account",403);
     const assigned_role=ok(await supabase.rpc("rboas_claim_preapproved",{
       p_email:user.email.toLowerCase(),p_user_id:user.id
     }));
