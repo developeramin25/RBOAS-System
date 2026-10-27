@@ -18,5 +18,6 @@ jobs:
         run: |
           node --check app.js
           node --check demo-bank.js
+          node --input-type=module --check < auth-pages.js
       - name: Run application smoke tests
-        run: node --test tests/smoke.test.cjs
+        run: node --test tests/*.test.cjs
