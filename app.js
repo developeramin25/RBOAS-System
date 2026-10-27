@@ -235,7 +235,7 @@ function launchReadiness(){
  const total=isPublic?50:state.questions.length;
  const steps=[
   {name:"Activate the first administrator",status:admin?"Ready":"Needs activation",
-   description:admin?"Your active administrator account is recognized by Supabase.":"A verified Supabase Auth account needs an administrator role and matching active RBOAS profile. Admin rights cannot be assigned through an untrusted public signup form.",
+   description:admin?"Your active administrator account is recognized by Supabase.":"Only preapproved verified email addresses can activate their assigned role. Open Sign in → Activate an approved account.",
    action:"Open Supabase Auth",url:"https://supabase.com/dashboard/project/dgusnyfhcizbmdmryjbj/auth/users"},
   {name:"Configure invitation redirects",status:"Needs verification",
    description:"Confirm the production RBOAS domain under Authentication → URL Configuration before invitations are sent.",
@@ -460,12 +460,39 @@ async function initializeAuth(){
 async function syncUser(){
  const res=await state.client.auth.getUser();
  if(res.error||!res.data.user){state.signedIn=false;state.user=null;state.profile=null;return;}
- const user=res.data.user;state.user=user;
- state.role=user.app_metadata&&user.app_metadata.rboas_role||"trainee";
- const p=await state.client.from("user_profiles").select("id,display_name,email,store_code,employee_code,active").eq("id",user.id).maybeSingle();
- if(p.error||!p.data){await state.client.auth.signOut();state.signedIn=false;throw Error("Account not activated. Contact an RBOAS administrator.");}state.profile=p.data;
- if(state.profile.active===false){await state.client.auth.signOut();state.signedIn=false;throw Error("Account disabled. Contact your administrator.");}
- state.signedIn=true;await loadData();
+ let user=res.data.user;
+ let p=await state.client.from("user_profiles").select("id,display_name,email,store_code,employee_code,active").eq("id",user.id).maybeSingle();
+ if(!p.data){
+   if(!user.email_confirmed_at){
+     await state.client.auth.signOut();
+     throw Error("Confirm your email before signing in.");
+   }
+   try {
+     // Only an email preapproved in private Supabase records is eligible.
+     await api("activate_preapproved");
+     const refreshed=await state.client.auth.refreshSession();
+     if(refreshed.error)throw refreshed.error;
+     const info=await state.client.auth.getUser();
+     if(info.error||!info.data.user)throw Error("Unable to refresh account role.");
+     user=info.data.user;
+     p=await state.client.from("user_profiles").select("id,display_name,email,store_code,employee_code,active").eq("id",user.id).maybeSingle();
+   } catch(error){
+     await state.client.auth.signOut();
+     throw Error(error.message||"Account not approved. Contact the administrator.");
+   }
+ }
+ if(p.error||!p.data){
+   await state.client.auth.signOut();
+   throw Error("Account not activated. Contact the administrator.");
+ }
+ state.user=user;state.profile=p.data;
+ if(state.profile.active===false){
+   await state.client.auth.signOut();state.signedIn=false;
+   throw Error("Account disabled. Contact your administrator.");
+ }
+ state.role=user.app_metadata?.rboas_role||"trainee";
+ state.signedIn=true;
+ await loadData();
 }
 async function loadData(){
  if(!state.client||!state.signedIn)return;
@@ -561,6 +588,43 @@ document.addEventListener("click",async function(e){
 });
 document.addEventListener("input",function(e){
  if(e.target.id==="traineeFilter"){const q=e.target.value.toLowerCase().trim();document.querySelectorAll("tr[data-search]").forEach(row=>{row.hidden=!row.dataset.search.includes(q);});}
+});
+document.getElementById("activateFromLogin").addEventListener("click",()=>{
+ document.getElementById("authDialog").close();
+ document.getElementById("activateDialog").showModal();
+});
+document.getElementById("activateForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const form=e.target,message=document.getElementById("activateMessage"),button=document.getElementById("activateSubmit");
+ message.textContent="";
+ const fd=new FormData(form);
+ const email=String(fd.get("email")||"").trim().toLowerCase();
+ const name=String(fd.get("display_name")||"").trim();
+ const password=String(fd.get("password")||"");
+ const confirm=String(fd.get("confirm")||"");
+ if(password.length<12){message.textContent="Choose a password of at least 12 characters.";return;}
+ if(password!==confirm){message.textContent="Passwords do not match.";return;}
+ button.disabled=true;
+ try{
+   if(!state.client)throw Error("Authentication service is unavailable. Refresh and retry.");
+   const signup=await state.client.auth.signUp({
+     email,password,
+     options:{data:{display_name:name},emailRedirectTo:window.location.origin+"/"}
+   });
+   if(signup.error)throw signup.error;
+   if(signup.data.session){
+     await syncUser();
+     document.getElementById("activateDialog").close();
+     form.reset();state.page="overview";render();
+     toast("Your RBOAS account is activated");
+   }else{
+     // Email confirmation is required before role activation.
+     message.style.color="#28765c";
+     message.textContent="Check your inbox and verify your email, then return here and sign in.";
+     form.reset();
+   }
+ }catch(error){message.style.color="#c04c4c";message.textContent=error.message||"Unable to register this account.";}
+ finally{button.disabled=false;}
 });
 document.getElementById("closeLogin").addEventListener("click",()=>document.getElementById("authDialog").close());
 document.getElementById("loginForm").addEventListener("submit",async function(e){
