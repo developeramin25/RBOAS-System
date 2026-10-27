@@ -28,11 +28,32 @@ Deno.serve(async req=>{
   const result=await supabase.auth.getUser(bearer);
   const user=result.data.user;
   if(result.error||!user)bad("Session invalid",401);
+  let body:any;try{body=await req.json()}catch{bad("Invalid JSON");}
+  const action=text(body?.action,"action",40);
+  // Bootstrap is exclusively for a previously allowlisted, email-verified Supabase user.
+  // All authorization decisions happen here with the service role, never in the browser.
+  if(action==="bootstrap_admin"){
+    if(!user.email||!user.email_confirmed_at)bad("A verified work email is required",403);
+    const allowed=ok(await supabase.rpc("rboas_claim_bootstrap",{
+      p_email:user.email.toLowerCase(),p_user_id:user.id
+    }));
+    if(!allowed)bad("This account is not authorized to activate administration",403);
+    const oldMeta=user.app_metadata||{};
+    ok(await supabase.auth.admin.updateUserById(user.id,{
+      app_metadata:{...oldMeta,rboas_role:"admin"}
+    }));
+    const display_name=(typeof user.user_metadata?.display_name==="string"
+      && user.user_metadata.display_name.trim().length>=2)
+      ?user.user_metadata.display_name.trim().slice(0,120):user.email.split("@")[0];
+    ok(await supabase.from("user_profiles").upsert({
+      id:user.id,display_name,email:user.email.toLowerCase(),active:true
+    },{onConflict:"id"}));
+    await record(user.id,"activate_first_admin","user_profiles",user.id);
+    return json(req,{data:{activated:true}});
+  }
   const person=ok(await supabase.from("user_profiles").select("id,active,display_name").eq("id",user.id).maybeSingle());
   if(!person||!person.active)bad("RBOAS account not activated",403);
   const role=user.app_metadata?.rboas_role||"trainee";
-  let body:any;try{body=await req.json()}catch{bad("Invalid JSON");}
-  const action=text(body?.action,"action",40);
   const adminOnly=()=>{if(role!=="admin")bad("Administrator role required",403);};
   const staffOnly=()=>{if(role!=="admin"&&role!=="manager")bad("Manager role required",403);};
   const ownAttempt=async(value:unknown)=>{
