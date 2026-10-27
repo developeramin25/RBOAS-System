@@ -452,10 +452,35 @@ async function initializeAuth(){
  try{
   const module=await import("https://esm.sh/@supabase/supabase-js@2.95.0");
   state.client=module.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  const result=await state.client.auth.getSession();
-  if(result.data&&result.data.session)await syncUser();
- }catch(e){console.warn("Supabase initialization unavailable:",e.message);}
- finally{state.sessionLoading=false;render();if(state.passwordSetupNeeded&&state.signedIn){state.passwordSetupNeeded=false;document.getElementById("passwordDialog").showModal();}}
+  const existing=await state.client.auth.getSession();
+  const params=new URLSearchParams(location.search);
+  if(existing.data?.session){
+    const info=await state.client.auth.getUser();
+    const user=info.data?.user;
+    if(user){
+      const recovery=location.hash.includes("type=recovery") || params.get("type")==="recovery";
+      if(recovery){location.replace("/register.html?recovery=1");return;}
+      const profile=await state.client.from("user_profiles").select("id,active").eq("id",user.id).maybeSingle();
+      if(user.invited_at && (!profile.data || !user.user_metadata?.rboas_profile_completed)){
+        // Invitation link establishes a session first. The user must finish
+        // registration, sign out, and then explicitly sign in.
+        location.replace("/register.html");
+        return;
+      }
+      if(profile.data){
+        await syncUser();
+        return;
+      }
+    }
+  }
+  if(params.get("demo")!=="1")location.replace("/login.html");
+ }catch(e){
+  console.warn("RBOAS session initialization failed:",e.message);
+  if(new URLSearchParams(location.search).get("demo")!=="1")location.replace("/login.html");
+ }finally{
+  state.sessionLoading=false;
+  render();
+ }
 }
 async function syncUser(){
  const res=await state.client.auth.getUser();
@@ -581,8 +606,8 @@ document.addEventListener("click",async function(e){
  const action=btn.dataset.action;
  if(action==="exportReportCSV"){exportResultsCSV();return;}
  if(action==="printOverview"||action==="printDetail"){window.print();return;}
- if(action==="login"){const d=document.getElementById("authDialog");d.showModal();return;}
- if(action==="logout"){if(state.client)await state.client.auth.signOut();state.signedIn=false;state.profile=null;state.user=null;state.role="preview";state.page="overview";state.trainees=[];state.questions=[];state.attempts=[];state.assignments=[];state.assessments=[];render();toast("Signed out");return;}
+ if(action==="login"){location.assign("/login.html");return;}
+ if(action==="logout"){if(state.client)await state.client.auth.signOut();location.replace("/login.html?loggedout=1");return;}
  if(action==="prevQuiz"){state.question=Math.max(0,state.question-1);render();return;}
  if(action==="nextQuiz"){if(state.question===PRACTICE.length-1){if(!window.confirm("Submit this practice exam? Unanswered questions count as incorrect."))return;state.quizFinished=true;}else state.question++;render();return;}
  if(action==="resetQuiz"){preparePractice();render();return;}if(action==="printResult"){window.print();return;}
