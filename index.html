@@ -24,10 +24,26 @@
       <input id="loginPassword" name="password" type="password" required autocomplete="current-password" placeholder="Enter password"/>
       <div id="loginMessage" class="form-message" role="status"></div>
       <button type="submit" class="primary full" id="loginSubmit">Sign in securely</button>
+      <button type="button" class="text-button full" id="activateFromLogin">Activate an approved account</button>
       <button type="button" class="text-button full" id="closeLogin">Back to design preview</button>
     </form>
   </dialog>
 
+<dialog id="activateDialog" class="auth-dialog" aria-labelledby="activateTitle">
+<form id="activateForm" class="auth-form">
+  <div class="auth-symbol">✓</div>
+  <h2 id="activateTitle">Activate your RBOAS account</h2>
+  <p>Only previously approved administrator and manager accounts can use this form. After registration, confirm the email link to activate your assigned role.</p>
+  <label for="activateName">Full name</label><input id="activateName" name="display_name" type="text" required minlength="2" maxlength="120" autocomplete="name"/>
+  <label for="activateEmail">Approved email</label><input id="activateEmail" name="email" type="email" required autocomplete="email" placeholder="Your approved email"/>
+  <label for="activatePassword">Choose a password</label><input id="activatePassword" name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password"/>
+  <label for="activateConfirm">Confirm password</label><input id="activateConfirm" name="confirm" type="password" required minlength="12" maxlength="128" autocomplete="new-password"/>
+  <p>Use a unique password. Passwords are handled by Supabase Auth, not stored in this website's question database.</p>
+  <div class="form-message" id="activateMessage" role="status"></div>
+  <button class="primary full" id="activateSubmit" type="submit">Create account &amp; verify email</button>
+  <button class="text-button full" type="button" data-close-dialog="activateDialog">Back</button>
+</form>
+</dialog>
 <dialog id="passwordDialog" class="auth-dialog" aria-labelledby="passwordTitle">
 <form id="passwordForm" class="auth-form">
 <div class="auth-symbol">✦</div><h2 id="passwordTitle">Set your password</h2>
